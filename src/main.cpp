@@ -6,7 +6,7 @@
 
 #include <SDL.h>
 
-#include "func_.hpp"
+#include "func.hpp"
 #include "toString.hpp"
 
 namespace
