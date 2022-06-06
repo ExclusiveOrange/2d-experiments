@@ -16,6 +16,11 @@ project(2d-experiments CXX)
 # consider reinstalling vcpkg (delete vcpkg directory, follow instructions online to re-install).
 # No idea why, but mine stopped working and reinstalling it was the only way to get it working again.
 # This also means using vcpkg to reinstall all dependencies.
+#
+# NOTICE: strongly recommend using clang-cl.exe instead of cl.exe on Windows.
+# At least MSVC 2022 cl.exe has problems compiling constraints & concepts and reports compile errors for valid code.
+# MSVC has always had problems with c++ templates and new or uncommon code patterns and you can save a lot of headache
+# by using clang or g++ instead of MSVC's own compiler.
 
 ########################################################################################################################
 # CLion build notes
@@ -27,6 +32,9 @@ project(2d-experiments CXX)
 #    Visual Studio:
 #        Toolset:
 #            Architecture: amd64
+#        CMake:
+#            C Compiler: <some path>/clang-cl.exe
+#            C++ Compiler: <some path>/clang-cl.exe
 #
 #-----------------------------------------------------------------------------------------------------------------------
 # Configure CMake to find vcpkg libraries:
@@ -43,44 +51,35 @@ project(2d-experiments CXX)
 #
 ########################################################################################################################
 
-# tell compiler to generate assembler listings
-if (MSVC)
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /FAsu")
-endif ()
-
-# tell compiler to enable auto vectorization report
-if (MSVC)
-    # Qvec-report:1 successfully vectorized loops only
-    # Qvec-report:2 successfully and unsuccessfully vectorized loops
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Qvec-report:2")
-endif ()
-
 # enable full optimization
 if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast")
 endif()
 
 ########################################################################################################################
-# external libraries
-########################################################################################################################
-
-# SDL2
-#   (from vcpkg directory, not this project directory)
-#   vcpkg install sdl2:x64-windows
-find_package(SDL2 CONFIG REQUIRED)
-
-########################################################################################################################
 # this project
 ########################################################################################################################
 
 file(GLOB cpps src/*.cpp util/*.cpp)
-
 add_executable(${PROJECT_NAME} ${cpps})
-
-# copied from another project in case I need to add more include directories later
-#target_include_directories(${PROJECT_NAME} PRIVATE sub/stb)
 target_include_directories(${PROJECT_NAME} PRIVATE concepts util)
 
+########################################################################################################################
+# libraries
+########################################################################################################################
+
+# SDL2
+#   vcpkg install sdl2:x64-windows
+find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE "SDL2::SDL2;SDL2::SDL2main")
+
+# SDL2-image
+#   vcpkg install sdl2-image:x64-windows
+find_package(sdl2-image CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE "SDL2::SDL2_image")
+
+########################################################################################################################
+# for later maybe
+########################################################################################################################
 
 #target_compile_definitions(${PROJECT_NAME} PUBLIC TRANSPARENT_WINDOW )

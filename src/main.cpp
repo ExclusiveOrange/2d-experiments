@@ -1,15 +1,18 @@
 #include <iostream>
+#include <filesystem>
 #include <optional>
 #include <type_traits>
 #include <utility>
 
 #include <SDL.h>
 
-#include "Func.hpp"
+#include "func_.hpp"
 #include "toString.hpp"
 
 namespace
 {
+  using errmsg = std::optional<std::string>;
+
   namespace imageFilenames
   {
     namespace terrainTiles
@@ -18,8 +21,18 @@ namespace
     }
   }
 
-  std::optional<std::string>
-  withSdlWindow(int width, int height, Func<SDL_Window *, std::optional<std::string>> auto &&run)
+  struct Images
+  {
+    SDL_Surface *test1;
+
+    ~Images()
+    {
+      SDL_FreeSurface(test1);
+    }
+  };
+
+  errmsg
+  withSdlWindow(int width, int height, func<SDL_Window *,errmsg> auto &&f)
   {
     std::optional<std::string> errormsg{};
 
@@ -38,7 +51,7 @@ namespace
         errormsg = toString("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
       else
       {
-        errormsg = run(sdlWindow);
+        errormsg = f(sdlWindow);
         SDL_DestroyWindow(sdlWindow);
       }
 
@@ -48,10 +61,10 @@ namespace
     return errormsg;
   }
 
-  std::optional<std::string>
-  withImages()
+  errmsg
+  withImages(func<const Images &, errmsg> auto &&f)
   {
-
+    // TODO
   }
 
   std::optional<std::string>
