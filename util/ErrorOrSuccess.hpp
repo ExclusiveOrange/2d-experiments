@@ -3,8 +3,8 @@
 #include <type_traits>
 
 // struct ErrorOrSuccess
-// struct Error
-// struct Success
+// ErrorOrSuccess Error(std::string errormsg)
+// const ErrorOrSuccess Success
 //
 // used to implement fluent error handling for simple error/success cases where the error is a simple string
 //
@@ -14,7 +14,7 @@
 //   ErrorOrSuccess doThing( int x )
 //   {
 //     if( x > 5 )
-//       return Success();
+//       return Success;
 //     else
 //       return Error( "x <= 5 is an error" );
 //   }
@@ -27,55 +27,50 @@
 //   }
 //======================================================================================================================
 
-struct [[nodiscard]] ErrorOrSuccess
+namespace error_or_success
 {
-  struct [[nodiscard]] MaybeSuccess
+  struct [[nodiscard]] ErrorOrSuccess
   {
-    explicit MaybeSuccess( bool success ) : _success{ success } {}
+    struct [[nodiscard]] MaybeSuccess
+    {
+      explicit MaybeSuccess( bool success ) : _success{ success } {}
+
+      template< class F >
+      void success( F &&f ) requires std::is_invocable_v<F>
+      {
+        if( _success )
+          f();
+      }
+
+    private:
+      bool _success;
+    };
+
+    ErrorOrSuccess() = default;
+    explicit ErrorOrSuccess( std::string errormsg ) : errormsg{ std::move( errormsg ) } {}
 
     template< class F >
-    void success( F &&f ) requires std::is_invocable_v<F>
+    MaybeSuccess error( F &&f ) requires std::is_invocable_v<F, std::string>
     {
-      if( _success )
-        f();
+      if( invoked )
+        throw std::exception( "ErrorOrSuccess.error was called twice" );
+
+      bool success = errormsg.empty();
+
+      if( !success )
+        f( errormsg );
+
+      errormsg.clear(); // don't need anymore
+      invoked = true;
+
+      return MaybeSuccess{ success };
     }
 
   private:
-    bool _success;
+    std::string errormsg;
+    bool invoked{};
   };
 
-  ErrorOrSuccess() = default;
-  explicit ErrorOrSuccess( std::string errormsg ) : errormsg{ std::move( errormsg ) } {}
-
-  template< class F >
-  MaybeSuccess error( F &&f ) requires std::is_invocable_v<F, std::string>
-  {
-    if( invoked )
-      throw std::exception( "ErrorOrSuccess.error was called twice" );
-
-    bool success = errormsg.empty();
-
-    if( !success )
-      f( errormsg );
-
-    errormsg.clear(); // don't need anymore
-    invoked = true;
-
-    return MaybeSuccess{ success };
-  }
-
-private:
-  std::string errormsg;
-  bool invoked{};
-};
-
-struct [[nodiscard]] Error : ErrorOrSuccess
-{
-  explicit Error( std::string errormsg ) : ErrorOrSuccess{ std::move( errormsg ) } {}
-};
-
-struct [[nodiscard]] Success : ErrorOrSuccess
-{
-  explicit Success() : ErrorOrSuccess{} {}
-};
-
+  ErrorOrSuccess Error(std::string errormsg) { return ErrorOrSuccess{std::move(errormsg)}; }
+  const ErrorOrSuccess Success{};
+}
