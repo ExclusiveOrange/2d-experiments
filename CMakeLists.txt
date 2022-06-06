@@ -54,7 +54,9 @@ project(2d-experiments CXX)
 # enable full optimization
 if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast")
-endif()
+elseif (GNU OR CLANG)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math")
+endif ()
 
 ########################################################################################################################
 # this project
@@ -63,6 +65,27 @@ endif()
 file(GLOB cpps src/*.cpp util/*.cpp)
 add_executable(${PROJECT_NAME} ${cpps})
 target_include_directories(${PROJECT_NAME} PRIVATE concepts util)
+
+########################################################################################################################
+# assets symlink to build directory
+########################################################################################################################
+
+# thanks: https://www.reddit.com/r/cmake/comments/ms89nx/comment/gus0nqx
+# Set a symbolic link so exe can find the /assets folder
+set(link_src "${CMAKE_SOURCE_DIR}/assets")
+if (APPLE)
+    # dunno why APPLE is different, maybe it's not (haven't tested yet)
+    set(link_dst "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/assets")
+else ()
+    set(link_dst "${CMAKE_CURRENT_BINARY_DIR}/assets")
+endif ()
+add_custom_command(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD COMMAND ${CMAKE_COMMAND}
+        -E create_symlink ${link_src} ${link_dst}
+        DEPENDS ${link_dst}
+        COMMENT "symbolic link ${link_src} => ${link_dst}"
+)
 
 ########################################################################################################################
 # libraries
