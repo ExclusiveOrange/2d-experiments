@@ -49,6 +49,12 @@ namespace
   }
 
   std::optional<std::string>
+  withImages()
+  {
+
+  }
+
+  std::optional<std::string>
   run(SDL_Window *sdlWindow)
   {
     SDL_Surface *sdlSurface = SDL_GetWindowSurface(sdlWindow);
