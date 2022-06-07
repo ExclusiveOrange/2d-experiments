@@ -1,0 +1,56 @@
+2022.06.07
+
+CPU rendering
+
+2.5D at best
+no perspective
+
+want depth buffer; this allows things like grass and brush to intersect / overlap sprites
+want tiles & sprites to have depth channel
+want procedural and semi-procedural tiles & sprites;
+    for example water should animate at least with ripples / waves;
+
+
+what about alpha & blending?
+alpha blending works only if:
+    depth value < dest depth
+which is sensitive to draw order;
+it might be possible to defer blending for each pixel, but I imagine this would require a hefty buffer and it
+would still have a hard limit of how many things can be drawn to a single pixel before it must be resolved
+
+one way to deal with it might be to split the screen into square tiles or even raster lines,
+and then deal with a single pixel at a time for all graphics overlapping that pixel;
+this would be an odd order of drawing things, but it would allow thin translucencies to be resolved easily enough;
+
+thick translucensies:
+    near z and far z
+    some function based on difference between between them
+    where far z is min of desired far z and current depth buffer at that point
+    this would allow things like irregular fog and other irregular volumetrics
+overlapping thick translucencies:
+    split a single pixel by depth based on which sprite it intersects;
+
+    glass ball
+    glass ball and fog
+    fog
+    solid ground
+
+lighting:
+    basic lighting could be basic bump-mapping
+    normal map could be calculated from depth map
+    deferred lighting might be best
+    but this is all complicated so it can wait until later
+
+shadows:
+    far more complicated to do real shadows, probably not worth it to try
+    might get away with fake ambient-occlusion for near pixels with similar z values,
+    this could even be done as a post-processing effect
+
+reflections:
+    very basic screen-space reflections might be feasible,
+    but there is no sky or horizon so it would have to be limited and would not be quite realistic;
+    still might be good enough for simple things
+    would require that parts of scene that might be visible in reflection are rendered, even if they are slightly offscreen
+    basically:
+        given reflective pixel at (x,y) with normal (nx,ny),
+        can calculate reflection ray,

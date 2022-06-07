@@ -22,7 +22,7 @@ namespace
     constexpr const int height = 1080;
   }
 
-  namespace paths
+  namespace defaults::paths
   {
     const std::filesystem::path assets = "assets";
     const std::filesystem::path images = assets / "images";
@@ -139,7 +139,7 @@ namespace
   useSdlWindow(SDL_Window *window)
   {
     showSplashScreen(window);
-    return acquireImages(paths::images, [=](const Images &images) {return useSdlWindowAndImages(window, images);});
+    return acquireImages(defaults::paths::images, [=](const Images &images) {return useSdlWindowAndImages(window, images);});
   }
 
   errmsg
