@@ -6,4 +6,7 @@ struct NoCopyNoMove
 
   NoCopyNoMove(const NoCopyNoMove&) = delete;
   NoCopyNoMove(NoCopyNoMove&&) = delete;
+
+  NoCopyNoMove& operator =(const NoCopyNoMove&) = delete;
+  NoCopyNoMove& operator =(NoCopyNoMove&&) = delete;
 };
