@@ -64,7 +64,7 @@ endif ()
 
 file(GLOB cpps src/*.cpp util/*.cpp)
 add_executable(${PROJECT_NAME} ${cpps})
-target_include_directories(${PROJECT_NAME} PRIVATE concepts util)
+target_include_directories(${PROJECT_NAME} PRIVATE util)
 
 ########################################################################################################################
 # assets symlink to build directory

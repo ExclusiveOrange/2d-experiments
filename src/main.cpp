@@ -2,13 +2,12 @@
 #include <filesystem>
 #include <functional>
 #include <optional>
-#include <type_traits>
 #include <utility>
 
 #include <SDL.h>
 #include <SDL_image.h>
 
-#include "callable_type_helpers.hpp"
+#include "function_traits.hpp"
 #include "toString.hpp"
 
 namespace
@@ -41,7 +40,7 @@ namespace
   }
 
   errmsg
-  withImages(Function<const Images &, errmsg> auto &&f)
+  withImages(Function<errmsg(const Images &)> auto &&f)
   {
     errmsg errormsg{};
     Images images{};
@@ -54,7 +53,7 @@ namespace
   }
 
   errmsg
-  withSdl(Action<errmsg> auto &&f)
+  withSdl(Function<errmsg()> auto &&f)
   {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
       return toString("SDL_Init failed! SDL_Error: ", SDL_GetError());
@@ -65,7 +64,7 @@ namespace
   }
 
   errmsg
-  withSdlWindow(int width, int height, Function<SDL_Window *, errmsg> auto &&f)
+  withSdlWindow(int width, int height, Function<errmsg(SDL_Window *)> auto &&f)
   {
     SDL_Window *sdlWindow =
         SDL_CreateWindow(
@@ -83,7 +82,7 @@ namespace
   }
 
   errmsg
-  runWithWindowAndImages(SDL_Window *sdlWindow, Images &images)
+  runWithWindowAndImages(SDL_Window *sdlWindow, const Images &images)
   {
     auto surface = SDL_GetWindowSurface(sdlWindow);
 
@@ -105,16 +104,15 @@ namespace
     SDL_FillRect(sdlSurface, nullptr, SDL_MapRGB(sdlSurface->format, 255, 255, 255));
     SDL_UpdateWindowSurface(sdlWindow);
 
-    return withImages(std::bind(runWithWindowAndImages, sdlWindow, std::placeholders::_1));
+    return withImages([=](const Images &images)->errmsg{ return runWithWindowAndImages(sdlWindow, images); });
   }
-
 }
 
 int main(int argc, char *argv[])
 {
   constexpr int width = 1920, height = 1080;
 
-  errmsg errormsg = withSdl(std::bind(withSdlWindow, width, height, runWithWindowAndImages));
+  errmsg errormsg = withSdl([=]()->errmsg{ return withSdlWindow(width, height, runWithWindow); });
 
   if (errormsg)
     std::cerr << "error: " << *errormsg << std::endl;
