@@ -8,7 +8,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
-#include "func.hpp"
+#include "callable_type_helpers.hpp"
 #include "toString.hpp"
 
 namespace
@@ -25,7 +25,7 @@ namespace
 
     ~Images()
     {
-      if(test1)
+      if (test1)
         SDL_FreeSurface(test1);
     }
   };
@@ -34,52 +34,51 @@ namespace
   {
     std::filesystem::path path = ASSETS_IMAGES / filename;
 
-    if(SDL_Surface *maybeSurface = IMG_Load(path.string().c_str()))
+    if (SDL_Surface *maybeSurface = IMG_Load(path.string().c_str()))
       return (*dest = maybeSurface, std::nullopt);
 
     return toString("IMG_Load failed! SDL_Error: ", SDL_GetError());
   }
 
   errmsg
-  withImages(func<const Images &, errmsg> auto &&f)
+  withImages(Function<const Images &, errmsg> auto &&f)
   {
     errmsg errormsg{};
     Images images{};
     bool allImagesLoaded = !(errormsg = loadImage(Images::test1_file, &images.test1));
 
-    if(allImagesLoaded)
+    if (allImagesLoaded)
       return f(images);
 
     return errormsg;
   }
 
   errmsg
-  withSdlWindow(int width, int height, func<SDL_Window *, errmsg> auto &&f)
+  withSdl(Action<errmsg> auto &&f)
   {
-    errmsg errormsg{};
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+      return toString("SDL_Init failed! SDL_Error: ", SDL_GetError());
 
-    if(SDL_Init(SDL_INIT_VIDEO) < 0)
-      errormsg = toString("SDL_Init failed! SDL_Error: ", SDL_GetError());
-    else
-    {
-      SDL_Window *sdlWindow =
-          SDL_CreateWindow(
-              "SDL Tutorial",
-              SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-              width, height,
-              SDL_WINDOW_SHOWN);
+    errmsg errormsg = f();
+    SDL_Quit();
+    return errormsg;
+  }
 
-      if(sdlWindow == nullptr)
-        errormsg = toString("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
-      else
-      {
-        errormsg = f(sdlWindow);
-        SDL_DestroyWindow(sdlWindow);
-      }
+  errmsg
+  withSdlWindow(int width, int height, Function<SDL_Window *, errmsg> auto &&f)
+  {
+    SDL_Window *sdlWindow =
+        SDL_CreateWindow(
+            "SDL Tutorial",
+            SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+            width, height,
+            SDL_WINDOW_SHOWN);
 
-      SDL_Quit();
-    }
+    if (sdlWindow == nullptr)
+      return toString("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
 
+    errmsg errormsg = f(sdlWindow);
+    SDL_DestroyWindow(sdlWindow);
     return errormsg;
   }
 
@@ -108,13 +107,16 @@ namespace
 
     return withImages(std::bind(runWithWindowAndImages, sdlWindow, std::placeholders::_1));
   }
+
 }
 
 int main(int argc, char *argv[])
 {
   constexpr int width = 1920, height = 1080;
 
-  if(errmsg errormsg = withSdlWindow(width, height, runWithWindow))
+  errmsg errormsg = withSdl(std::bind(withSdlWindow, width, height, runWithWindowAndImages));
+
+  if (errormsg)
     std::cerr << "error: " << *errormsg << std::endl;
 
   return 0;
