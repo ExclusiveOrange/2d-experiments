@@ -66,7 +66,7 @@ namespace
   // The purpose is to simplify and safen resource management.
 
   errmsg
-  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth&)> auto &&then)
+  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth&)> auto &&use)
   {
     CpuImageWithDepth buffer{};
 
@@ -75,7 +75,7 @@ namespace
     buffer.w = width;
     buffer.h = height;
 
-    errmsg errormsg = then(buffer);
+    errmsg errormsg = use(buffer);
 
     delete buffer.depth;
     delete buffer.image;
@@ -84,7 +84,7 @@ namespace
   }
 
   errmsg
-  acquireImages(const std::filesystem::path &imagesPath, Function<errmsg(const Images &)> auto &&then)
+  acquireImages(const std::filesystem::path &imagesPath, Function<errmsg(const Images &)> auto &&use)
   {
     auto loadImage = [&imagesPath](const char *filename, SDL_Surface **dest) -> errmsg
     {
@@ -107,25 +107,25 @@ namespace
       !(errormsg = loadImage(Images::test1File, &images.test1));
 
     if (allLoaded)
-      then(images);
+      use(images);
 
     return errormsg;
   }
 
   errmsg
-  acquireSdl(Function<errmsg()> auto &&then)
+  acquireSdl(Function<errmsg()> auto &&use)
   {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
       return toString("SDL_Init failed! SDL_Error: ", SDL_GetError());
 
-    errmsg errormsg = then();
+    errmsg errormsg = use();
     SDL_Quit();
 
     return errormsg;
   }
 
   errmsg
-  acquireSdlWindow(int width, int height, Function<errmsg(SDL_Window *)> auto &&then)
+  acquireSdlWindow(int width, int height, Function<errmsg(SDL_Window *)> auto &&use)
   {
     SDL_Window *sdlWindow =
       SDL_CreateWindow(
@@ -137,7 +137,7 @@ namespace
     if (sdlWindow == nullptr)
       return toString("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
 
-    errmsg errormsg = then(sdlWindow);
+    errmsg errormsg = use(sdlWindow);
     SDL_DestroyWindow(sdlWindow);
 
     return errormsg;
@@ -149,22 +149,22 @@ namespace
   //
   void
   drawWithDepth(
-    uint32_t *__restrict destimage, int32_t *__restrict destdepth, int dw, int dh, int dx, int dy,
-    uint32_t *__restrict srcimage, int32_t *__restrict srcdepth, int sw, int sh, int sdepthbias)
+    CpuImageWithDepth dest, int destx, int desty,
+    CpuImageWithDepth src, int srcdepthbias)
   {
     // clip vertical
-    int minsy = dy < 0 ? -dy : 0;
-    int maxsy = (dh - dy) < sh ? (dh - dy) : sh;
+    int minsy = desty < 0 ? -desty : 0;
+    int maxsy = (dest.h - desty) < src.h ? (dest.h - desty) : src.h;
 
     // clip horizontal
-    int minsx = dx < 0 ? -dx : 0;
-    int maxsx = (dw - dx) < sw ? (dw - dx) : sw;
+    int minsx = destx < 0 ? -destx : 0;
+    int maxsx = (dest.w - destx) < src.w ? (dest.w - destx) : src.w;
 
     // for each non-clipped pixel in source...
     for (int sy = minsy; sy < maxsy; ++sy)
     {
-      int drowstart = (dy + sy) * dw + dx;
-      int srowstart = sy * sw;
+      int drowstart = (desty + sy) * dest.w + destx;
+      int srowstart = sy * src.w;
 
       for (int sx = minsx; sx < maxsx; ++sx)
       {
@@ -172,14 +172,14 @@ namespace
         int sindex = srowstart + sx;
 
         // test depth
-        int ddepth = destdepth[dindex];
-        int sdepth = srcdepth[sindex] + sdepthbias;
+        int ddepth = dest.depth[dindex];
+        int sdepth = src.depth[sindex] + srcdepthbias;
 
         if (sdepth < ddepth)
         {
           // depth test passed: overwrite dest image and dest depth
-          destimage[dindex] = srcimage[sindex];
-          destdepth[dindex] = sdepth;
+          dest.image[dindex] = src.image[sindex];
+          dest.depth[dindex] = sdepth;
         }
       }
     }
