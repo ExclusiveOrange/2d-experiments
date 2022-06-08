@@ -66,7 +66,7 @@ namespace
   // The purpose is to simplify and safen resource management.
 
   errmsg
-  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth&)> auto &&use)
+  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth&)> auto &&useCpuImageWithDepth)
   {
     CpuImageWithDepth buffer{};
 
@@ -75,7 +75,7 @@ namespace
     buffer.w = width;
     buffer.h = height;
 
-    errmsg errormsg = use(buffer);
+    errmsg errormsg = useCpuImageWithDepth(buffer);
 
     delete buffer.depth;
     delete buffer.image;
@@ -84,7 +84,7 @@ namespace
   }
 
   errmsg
-  acquireImages(const std::filesystem::path &imagesPath, Function<errmsg(const Images &)> auto &&use)
+  acquireImages(const std::filesystem::path &imagesPath, Function<errmsg(const Images &)> auto &&useImages)
   {
     auto loadImage = [&imagesPath](const char *filename, SDL_Surface **dest) -> errmsg
     {
@@ -107,25 +107,25 @@ namespace
       !(errormsg = loadImage(Images::test1File, &images.test1));
 
     if (allLoaded)
-      use(images);
+      useImages(images);
 
     return errormsg;
   }
 
   errmsg
-  acquireSdl(Function<errmsg()> auto &&use)
+  acquireSdl(Function<errmsg()> auto &&useSdl)
   {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
       return toString("SDL_Init failed! SDL_Error: ", SDL_GetError());
 
-    errmsg errormsg = use();
+    errmsg errormsg = useSdl();
     SDL_Quit();
 
     return errormsg;
   }
 
   errmsg
-  acquireSdlWindow(int width, int height, Function<errmsg(SDL_Window *)> auto &&use)
+  acquireSdlWindow(int width, int height, Function<errmsg(SDL_Window *)> auto &&useSdlWindow)
   {
     SDL_Window *sdlWindow =
       SDL_CreateWindow(
@@ -137,7 +137,7 @@ namespace
     if (sdlWindow == nullptr)
       return toString("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
 
-    errmsg errormsg = use(sdlWindow);
+    errmsg errormsg = useSdlWindow(sdlWindow);
     SDL_DestroyWindow(sdlWindow);
 
     return errormsg;
