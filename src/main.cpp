@@ -14,7 +14,13 @@
 
 namespace
 {
-  using errmsg = std::optional<std::string>;
+  namespace constants::tile
+  {
+    constexpr const int width = 32;
+    constexpr const int height = 16;
+    constexpr const int centerx = width / 2;
+    constexpr const int centery = height / 2;
+  }
 
   namespace defaults::window
   {
@@ -29,7 +35,19 @@ namespace
   }
 
   //======================================================================================================================
+  // error transmission
+
+  using errmsg = std::optional<std::string>;
+
+  //======================================================================================================================
   // structs
+
+  struct CpuImageWithDepth
+  {
+    uint32_t *image;
+    int32_t *depth;
+    int w, h;
+  };
 
   struct Images : NoCopyNoMove
   {
@@ -46,6 +64,24 @@ namespace
   // acquire* functions
   // These should acquire a resource, call a provided function, then release the resource.
   // The purpose is to simplify and safen resource management.
+
+  errmsg
+  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth&)> auto &&then)
+  {
+    CpuImageWithDepth buffer{};
+
+    buffer.image = new uint32_t[width * height];
+    buffer.depth = new int32_t[width * height];
+    buffer.w = width;
+    buffer.h = height;
+
+    errmsg errormsg = then(buffer);
+
+    delete buffer.depth;
+    delete buffer.image;
+
+    return errormsg;
+  }
 
   errmsg
   acquireImages(const std::filesystem::path &imagesPath, Function<errmsg(const Images &)> auto &&then)
@@ -109,6 +145,45 @@ namespace
 
   //======================================================================================================================
   // misc functions
+
+  //
+  void
+  drawWithDepth(
+    uint32_t *__restrict destimage, int32_t *__restrict destdepth, int dw, int dh, int dx, int dy,
+    uint32_t *__restrict srcimage, int32_t *__restrict srcdepth, int sw, int sh, int sdepthbias)
+  {
+    // clip vertical
+    int minsy = dy < 0 ? -dy : 0;
+    int maxsy = (dh - dy) < sh ? (dh - dy) : sh;
+
+    // clip horizontal
+    int minsx = dx < 0 ? -dx : 0;
+    int maxsx = (dw - dx) < sw ? (dw - dx) : sw;
+
+    // for each non-clipped pixel in source...
+    for (int sy = minsy; sy < maxsy; ++sy)
+    {
+      int drowstart = (dy + sy) * dw + dx;
+      int srowstart = sy * sw;
+
+      for (int sx = minsx; sx < maxsx; ++sx)
+      {
+        int dindex = drowstart + sx;
+        int sindex = srowstart + sx;
+
+        // test depth
+        int ddepth = destdepth[dindex];
+        int sdepth = srcdepth[sindex] + sdepthbias;
+
+        if (sdepth < ddepth)
+        {
+          // depth test passed: overwrite dest image and dest depth
+          destimage[dindex] = srcimage[sindex];
+          destdepth[dindex] = sdepth;
+        }
+      }
+    }
+  }
 
   void
   showSplashScreen(SDL_Window *window)
