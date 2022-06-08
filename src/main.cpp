@@ -14,6 +14,11 @@
 
 namespace
 {
+  namespace constants::sdl
+  {
+    constexpr const Uint32 renderFormat = SDL_PIXELFORMAT_ARGB8888;
+  }
+
   namespace constants::tile
   {
     constexpr const int width = 32;
@@ -66,7 +71,7 @@ namespace
   // The purpose is to simplify and safen resource management.
 
   errmsg
-  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth&)> auto &&useCpuImageWithDepth)
+  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth &)> auto &&useCpuImageWithDepth)
   {
     CpuImageWithDepth buffer{};
 
@@ -113,6 +118,20 @@ namespace
   }
 
   errmsg
+  acquireRenderTexture(SDL_Renderer *renderer, int width, int height, Function<errmsg(SDL_Texture *)> auto &&useRenderTexture)
+  {
+    SDL_Texture *renderTexture = SDL_CreateTexture(renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, width, height);
+
+    if (renderTexture == nullptr)
+      return toString("SDL_CreateTexture failed: ", SDL_GetError());
+
+    errmsg errormsg = useRenderTexture(renderTexture);
+    SDL_DestroyTexture(renderTexture);
+
+    return errormsg;
+  }
+
+  errmsg
   acquireSdl(Function<errmsg()> auto &&useSdl)
   {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -120,6 +139,20 @@ namespace
 
     errmsg errormsg = useSdl();
     SDL_Quit();
+
+    return errormsg;
+  }
+
+  errmsg
+  acquireSdlRenderer(SDL_Window *window, Function<errmsg(SDL_Renderer *)> auto &&useSdlRenderer)
+  {
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+    if (renderer == nullptr)
+      return toString("SDL_CreateRenderer failed: ", SDL_GetError());
+
+    errmsg errormsg = useSdlRenderer(renderer);
+    SDL_DestroyRenderer(renderer);
 
     return errormsg;
   }
@@ -203,11 +236,56 @@ namespace
   {
     // for now just display an image on the window and wait a bit then quit
 
-    SDL_BlitSurface(images.test1, nullptr, SDL_GetWindowSurface(window), nullptr);
-    SDL_UpdateWindowSurface(window);
-    SDL_Delay(2000);
+    SDL_Surface *windowSurface = SDL_GetWindowSurface(window);
 
-    return {};
+    int windowWidth = windowSurface->w;
+    int windowHeight = windowSurface->h;
+
+    return acquireSdlRenderer(
+      window,
+      [=](SDL_Renderer *sdlRenderer) -> errmsg
+      {
+        return acquireRenderTexture(
+          sdlRenderer, windowWidth, windowHeight,
+          [=](SDL_Texture *renderTexture) -> errmsg
+          {
+            return acquireCpuImageWithDepth(
+              windowWidth, windowHeight,
+              [=](const CpuImageWithDepth &cpuImageWithDepth) -> errmsg
+              {
+                int imagePitch = cpuImageWithDepth.w * sizeof(cpuImageWithDepth.image[0]);
+
+                // test render
+                for (int y = 0; y < cpuImageWithDepth.h; ++y)
+                  for (int x = 0; x < cpuImageWithDepth.w; ++x)
+                  {
+                    uint32_t p = (0xFF000000) | ((x & y & 255) << 16) | ((x & ~y & 255) << 8) | (~x & ~y & 255);
+                    cpuImageWithDepth.image[y * cpuImageWithDepth.w + x] = p;
+                  }
+
+                if (SDL_UpdateTexture(renderTexture, nullptr, cpuImageWithDepth.image, imagePitch))
+                  return toString("SDL_UpdateTexture failed: ", SDL_GetError());
+
+                if (SDL_RenderCopy(sdlRenderer, renderTexture, nullptr, nullptr))
+                  return toString("SDL_RenderCopy failed: ", SDL_GetError());
+
+                SDL_RenderPresent(sdlRenderer);
+
+                SDL_Delay(5000);
+
+                return {};
+              });
+          });
+      });
+
+//    SDL_RenderCopy()
+
+
+//    SDL_BlitSurface(images.test1, nullptr, SDL_GetWindowSurface(window), nullptr);
+//    SDL_UpdateWindowSurface(window);
+//    SDL_Delay(2000);
+//
+//    return {};
   }
 
   errmsg
