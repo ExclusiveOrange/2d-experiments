@@ -1,5 +1,6 @@
 #pragma once
 
+// inherit to inhibit copy and move
 struct NoCopyNoMove
 {
   NoCopyNoMove() = default;

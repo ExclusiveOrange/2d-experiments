@@ -3,6 +3,7 @@
 #include <functional>
 #include <future>
 #include <optional>
+#include <stdexcept>
 #include <utility>
 
 #include <SDL.h>
@@ -44,6 +45,10 @@ namespace
 
   using errmsg = std::optional<std::string>;
 
+  template<class...Args>
+  std::runtime_error
+  error(Args &&...args) {return std::runtime_error(toString(std::forward<Args>(args)...));}
+
   //======================================================================================================================
   // structs
 
@@ -66,120 +71,8 @@ namespace
   };
 
   //======================================================================================================================
-  // acquire* functions
-  // These should acquire a resource, call a provided function, then release the resource.
-  // The purpose is to simplify and safen resource management.
-
-  errmsg
-  acquireCpuImageWithDepth(int width, int height, Function<errmsg(const CpuImageWithDepth &)> auto &&useCpuImageWithDepth)
-  {
-    CpuImageWithDepth buffer{};
-
-    buffer.image = new uint32_t[width * height];
-    buffer.depth = new int32_t[width * height];
-    buffer.w = width;
-    buffer.h = height;
-
-    errmsg errormsg = useCpuImageWithDepth(buffer);
-
-    delete buffer.depth;
-    delete buffer.image;
-
-    return errormsg;
-  }
-
-  errmsg
-  acquireImages(const std::filesystem::path &imagesPath, Function<errmsg(const Images &)> auto &&useImages)
-  {
-    auto loadImage = [&imagesPath](const char *filename, SDL_Surface **dest) -> errmsg
-    {
-      std::filesystem::path path{imagesPath / filename};
-
-      SDL_Surface *maybeSurface = IMG_Load(path.string().c_str());
-
-      if (!maybeSurface)
-        return toString("IMG_Load failed: ", SDL_GetError());
-
-      *dest = maybeSurface;
-
-      return {};
-    };
-
-    errmsg errormsg{};
-    Images images;
-
-    bool allLoaded =
-      !(errormsg = loadImage(Images::test1File, &images.test1));
-
-    if (allLoaded)
-      useImages(images);
-
-    return errormsg;
-  }
-
-  errmsg
-  acquireRenderTexture(SDL_Renderer *renderer, int width, int height, Function<errmsg(SDL_Texture *)> auto &&useRenderTexture)
-  {
-    SDL_Texture *renderTexture = SDL_CreateTexture(renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, width, height);
-
-    if (renderTexture == nullptr)
-      return toString("SDL_CreateTexture failed: ", SDL_GetError());
-
-    errmsg errormsg = useRenderTexture(renderTexture);
-    SDL_DestroyTexture(renderTexture);
-
-    return errormsg;
-  }
-
-  errmsg
-  acquireSdl(Function<errmsg()> auto &&useSdl)
-  {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-      return toString("SDL_Init failed! SDL_Error: ", SDL_GetError());
-
-    errmsg errormsg = useSdl();
-    SDL_Quit();
-
-    return errormsg;
-  }
-
-  errmsg
-  acquireSdlRenderer(SDL_Window *window, Function<errmsg(SDL_Renderer *)> auto &&useSdlRenderer)
-  {
-    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-
-    if (renderer == nullptr)
-      return toString("SDL_CreateRenderer failed: ", SDL_GetError());
-
-    errmsg errormsg = useSdlRenderer(renderer);
-    SDL_DestroyRenderer(renderer);
-
-    return errormsg;
-  }
-
-  errmsg
-  acquireSdlWindow(int width, int height, Function<errmsg(SDL_Window *)> auto &&useSdlWindow)
-  {
-    SDL_Window *sdlWindow =
-      SDL_CreateWindow(
-        "SDL Tutorial",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        width, height,
-        SDL_WINDOW_SHOWN);
-
-    if (sdlWindow == nullptr)
-      return toString("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
-
-    errmsg errormsg = useSdlWindow(sdlWindow);
-    SDL_DestroyWindow(sdlWindow);
-
-    return errormsg;
-  }
-
-  //======================================================================================================================
   // misc functions
 
-  //
   void
   drawWithDepth(
     CpuImageWithDepth dest, int destx, int desty,
@@ -218,96 +111,189 @@ namespace
     }
   }
 
-  void
-  showSplashScreen(SDL_Window *window)
-  {
-    SDL_Surface *surface = SDL_GetWindowSurface(window);
-    SDL_FillRect(surface, nullptr, SDL_MapRGB(surface->format, 255, 255, 255));
-    SDL_UpdateWindowSurface(window);
-  }
-
   //======================================================================================================================
-  // use* functions
-  // These use already-acquired resources either implicitly (sdl) or explicitly (sdlwindow).
-  // The purpose is to contain operational logic.
+  // another attempt to get the right safety behavior I want before I get too far into this project
 
-  errmsg
-  useSdlWindowAndImages(SDL_Window *window, const Images &images)
+  struct Sdl : NoCopyNoMove
   {
-    // for now just display an image on the window and wait a bit then quit
+    Sdl()
+    {
+      if (SDL_Init(SDL_INIT_VIDEO) < 0)
+        throw error("SDL_Init failed! SDL_Error: ", SDL_GetError());
+    }
 
-    SDL_Surface *windowSurface = SDL_GetWindowSurface(window);
+    ~Sdl() {SDL_Quit();}
+  };
 
-    int windowWidth = windowSurface->w;
-    int windowHeight = windowSurface->h;
+  struct SdlWindow : NoCopyNoMove
+  {
+    // do not pass a temporary Sdl
+    SdlWindow(Sdl &&, int w, int h) = delete;
 
-    return acquireSdlRenderer(
-      window,
-      [=](SDL_Renderer *sdlRenderer) -> errmsg
+    SdlWindow(const Sdl &, int w, int h)
+      : window{
+      SDL_CreateWindow(
+        "SDL Tutorial",
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+        w, h,
+        SDL_WINDOW_SHOWN)}
+    {
+      if (window == nullptr)
+        throw error("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
+    }
+
+    SDL_Window *const window;
+
+    ~SdlWindow() {SDL_DestroyWindow(window);}
+  };
+
+  struct SdlRenderer : NoCopyNoMove
+  {
+    // do not pass a temporary SdlWindow
+    SdlRenderer(SdlWindow &&) = delete;
+
+    SdlRenderer(const SdlWindow &window)
+      : window{window}
+      , renderer{SDL_CreateRenderer(window.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)}
+    {
+      if (renderer == nullptr)
+        throw error("SDL_CreateRenderer failed: ", SDL_GetError());
+    }
+
+    const SdlWindow &window;
+    SDL_Renderer *const renderer;
+
+    ~SdlRenderer() {SDL_DestroyRenderer(renderer);}
+  };
+
+  // note: use std::optional to contain this if you want a replaceable object, then use std::optional.emplace(...)
+  struct RenderTexture : NoCopyNoMove
+  {
+    // do not pass a temporary SdlRenderer
+    RenderTexture(SdlRenderer &&, int w, int h) = delete;
+
+    RenderTexture(const SdlRenderer &renderer, int w, int h)
+      : renderer{renderer}
+      , texture{SDL_CreateTexture(renderer.renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, w, h)}
+    {
+      if (texture == nullptr)
+        throw error("SDL_CreateTexture failed: ", SDL_GetError());
+    }
+
+    const SdlRenderer &renderer;
+    SDL_Texture *const texture;
+
+    ~RenderTexture() {SDL_DestroyTexture(texture);}
+  };
+
+  struct CpuFrameBuffer
+  {
+    CpuFrameBuffer(int w, int h)
+      : image{std::make_unique<uint32_t[]>(w * h)}
+      , depth{std::make_unique<int32_t[]>(w * h)}
+      , w{w}, h{h} {}
+
+    void useWith(Function<void(const CpuImageWithDepth &)> auto &&f)
+    {
+      f({.image = image.get(), .depth = depth.get(), .w = w, .h = h});
+    }
+
+  private:
+    const std::unique_ptr<uint32_t[]> image;
+    const std::unique_ptr<int32_t[]> depth;
+    const int w, h;
+  };
+
+  struct FrameBuffers : NoCopyNoMove
+  {
+    // do not pass a temporary SdlRenderer
+    FrameBuffers(SdlRenderer &&) = delete;
+
+    FrameBuffers(const SdlRenderer &renderer)
+      : renderer{renderer} {}
+
+    void renderWith(Function<void(const CpuImageWithDepth &)> auto &&cpuRenderer)
+    {
+      allocateBuffersIfNecessary();
+      cpuFrameBuffer->useWith(cpuRenderer);
+      cpuFrameBuffer->useWith(
+        [&](const CpuImageWithDepth &imageWithDepth)
+        {
+          int imagePitch = imageWithDepth.w * sizeof(imageWithDepth.image[0]);
+
+          if (SDL_UpdateTexture(renderTexture->texture, nullptr, imageWithDepth.image, imagePitch))
+            throw error("SDL_UpdateTexture failed: ", SDL_GetError());
+
+          if (SDL_RenderCopy(renderer.renderer, renderTexture->texture, nullptr, nullptr))
+            throw error("SDL_RenderCopy failed: ", SDL_GetError());
+        });
+    }
+
+    void present() {SDL_RenderPresent(renderer.renderer);}
+
+  private:
+    const SdlRenderer &renderer;
+    int w{-1}, h{-1};
+    std::optional<RenderTexture> renderTexture;
+    std::optional<CpuFrameBuffer> cpuFrameBuffer;
+
+    void allocateBuffers()
+    {
+      renderTexture.emplace(renderer, w, h);
+      cpuFrameBuffer.emplace(w, h);
+    }
+
+    void allocateBuffersIfNecessary()
+    {
+      SDL_Surface *windowSurface = SDL_GetWindowSurface(renderer.window.window);
+
+      if (w != windowSurface->w || h != windowSurface->h)
       {
-        return acquireRenderTexture(
-          sdlRenderer, windowWidth, windowHeight,
-          [=](SDL_Texture *renderTexture) -> errmsg
-          {
-            return acquireCpuImageWithDepth(
-              windowWidth, windowHeight,
-              [=](const CpuImageWithDepth &cpuImageWithDepth) -> errmsg
-              {
-                int imagePitch = cpuImageWithDepth.w * sizeof(cpuImageWithDepth.image[0]);
-
-                // test render
-                for (int y = 0; y < cpuImageWithDepth.h; ++y)
-                  for (int x = 0; x < cpuImageWithDepth.w; ++x)
-                  {
-                    uint32_t p = (0xFF000000) | ((x & y & 255) << 16) | ((x & ~y & 255) << 8) | (~x & ~y & 255);
-                    cpuImageWithDepth.image[y * cpuImageWithDepth.w + x] = p;
-                  }
-
-                if (SDL_UpdateTexture(renderTexture, nullptr, cpuImageWithDepth.image, imagePitch))
-                  return toString("SDL_UpdateTexture failed: ", SDL_GetError());
-
-                if (SDL_RenderCopy(sdlRenderer, renderTexture, nullptr, nullptr))
-                  return toString("SDL_RenderCopy failed: ", SDL_GetError());
-
-                SDL_RenderPresent(sdlRenderer);
-
-                SDL_Delay(5000);
-
-                return {};
-              });
-          });
-      });
-
-//    SDL_RenderCopy()
-
-
-//    SDL_BlitSurface(images.test1, nullptr, SDL_GetWindowSurface(window), nullptr);
-//    SDL_UpdateWindowSurface(window);
-//    SDL_Delay(2000);
-//
-//    return {};
-  }
-
-  errmsg
-  useSdlWindow(SDL_Window *window)
-  {
-    showSplashScreen(window);
-    return acquireImages(defaults::paths::images, [=](const Images &images) {return useSdlWindowAndImages(window, images);});
-  }
-
-  errmsg
-  useSdl()
-  {
-    return acquireSdlWindow(defaults::window::width, defaults::window::height, useSdlWindow);
-  }
+        (w = windowSurface->w, h = windowSurface->h);
+        allocateBuffers();
+      }
+    }
+  };
 }
 
 //======================================================================================================================
 
 int main(int argc, char *argv[])
 {
-  if (errmsg errormsg = acquireSdl(useSdl))
-    std::cerr << "error: " << *errormsg << std::endl;
+  try
+  {
+    Sdl sdl;
+    SdlWindow window{sdl, defaults::window::width, defaults::window::height};
+    SdlRenderer renderer{window};
+    FrameBuffers frameBuffers{renderer};
+
+    //----------------------------------------------------------------------------------------------------------------------
+    // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
+    auto testRenderer =
+      [](const CpuImageWithDepth &imageWithDepth)
+      {
+        for (int y = 0; y < imageWithDepth.h; ++y)
+          for (int x = 0; x < imageWithDepth.w; ++x)
+          {
+            uint32_t p = (0xFF000000) | ((x & y & 255) << 16) | ((x & ~y & 255) << 8) | (~x & ~y & 255);
+            imageWithDepth.image[y * imageWithDepth.w + x] = p;
+          }
+      };
+
+    frameBuffers.renderWith(testRenderer);
+    frameBuffers.present();
+
+    SDL_Delay(3000);
+
+    // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
+    //----------------------------------------------------------------------------------------------------------------------
+
+    // TODO: render loop: check for events, render to frame buffer, present frame buffer, etc.
+  }
+  catch (const std::exception &e)
+  {
+    std::cerr << "caught exception in main: " << e.what() << std::endl;
+  }
 
   return 0;
 }

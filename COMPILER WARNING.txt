@@ -1,6 +1,6 @@
 As of 2022.06.06, MSVC cl.exe is not a suitable compiler for this project.
 The reason is that MSVC cl.exe generates compile errors for simple, valid concepts, whereas clang-cl.exe does not.
-I don't know why and I don't care, because it is simple to use g++ or clang-cl or clang instead of cl.exe.
+I don't know why and I don't care, because it is simple to useWith g++ or clang-cl or clang instead of cl.exe.
 
 In CLion:
 
