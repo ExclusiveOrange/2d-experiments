@@ -28,6 +28,12 @@ namespace
     constexpr const int centery = height / 2;
   }
 
+  namespace defaults::render
+  {
+    constexpr const float scale = 2.f;
+    constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
+  }
+
   namespace defaults::window
   {
     constexpr const int width = 1920;
@@ -52,10 +58,16 @@ namespace
   //======================================================================================================================
   // structs
 
-  struct CpuImageWithDepth
+  struct ViewOfCpuFrameBuffer
   {
     uint32_t *image;
     int32_t *depth;
+    int w, h;
+  };
+
+  struct ViewOfCpuImageWithDepth
+  {
+    uint32_t *drgb; // depth instead of alpha: 0-254 == test, 255 == cull (transparent)
     int w, h;
   };
 
@@ -75,8 +87,8 @@ namespace
 
   void
   drawWithDepth(
-    CpuImageWithDepth dest, int destx, int desty,
-    CpuImageWithDepth src, int srcdepthbias)
+    ViewOfCpuFrameBuffer dest, int destx, int desty,
+    ViewOfCpuImageWithDepth src, int srcdepthbias)
   {
     // clip vertical
     int minsy = desty < 0 ? -desty : 0;
@@ -94,18 +106,24 @@ namespace
 
       for (int sx = minsx; sx < maxsx; ++sx)
       {
-        int dindex = drowstart + sx;
         int sindex = srowstart + sx;
+        uint32_t sdrgb = src.drgb[sindex];
 
-        // test depth
-        int ddepth = dest.depth[dindex];
-        int sdepth = src.depth[sindex] + srcdepthbias;
-
-        if (sdepth < ddepth)
+        // source is transparent if source depth == 255, else test against dest
+        if (sdrgb < 0xff000000)
         {
-          // depth test passed: overwrite dest image and dest depth
-          dest.image[dindex] = src.image[sindex];
-          dest.depth[dindex] = sdepth;
+          int dindex = drowstart + sx;
+          int ddepth = dest.depth[dindex];
+
+          int sdepth = ((sdrgb & 0xff000000) >> 24) + srcdepthbias;
+
+          if (sdepth < ddepth)
+          {
+            // depth test passed: overwrite dest image and dest depth
+            uint32_t sargb = 0xff000000 | (sdrgb & 0xffffff);
+            dest.image[dindex] = sargb;
+            dest.depth[dindex] = sdepth;
+          }
         }
       }
     }
@@ -167,12 +185,12 @@ namespace
   };
 
   // note: use std::optional to contain this if you want a replaceable object, then use std::optional.emplace(...)
-  struct RenderTexture : NoCopyNoMove
+  struct RenderBufferTexture : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
-    RenderTexture(SdlRenderer &&, int w, int h) = delete;
+    RenderBufferTexture(SdlRenderer &&, int w, int h) = delete;
 
-    RenderTexture(const SdlRenderer &renderer, int w, int h)
+    RenderBufferTexture(const SdlRenderer &renderer, int w, int h)
       : renderer{renderer}
       , texture{SDL_CreateTexture(renderer.renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, w, h)}
     {
@@ -183,9 +201,10 @@ namespace
     const SdlRenderer &renderer;
     SDL_Texture *const texture;
 
-    ~RenderTexture() {SDL_DestroyTexture(texture);}
+    ~RenderBufferTexture() {SDL_DestroyTexture(texture);}
   };
 
+  // note: use std::optional to contain this if you want a replaceable object, then use std::optional.emplace(...)
   struct CpuFrameBuffer
   {
     CpuFrameBuffer(int w, int h)
@@ -193,7 +212,7 @@ namespace
       , depth{std::make_unique<int32_t[]>(w * h)}
       , w{w}, h{h} {}
 
-    void useWith(Function<void(const CpuImageWithDepth &)> auto &&f)
+    void useWith(Function<void(const ViewOfCpuFrameBuffer &)> auto &&f)
     {
       f({.image = image.get(), .depth = depth.get(), .w = w, .h = h});
     }
@@ -207,24 +226,30 @@ namespace
   struct FrameBuffers : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
-    FrameBuffers(SdlRenderer &&) = delete;
+    FrameBuffers(SdlRenderer &&, int) = delete;
 
-    FrameBuffers(const SdlRenderer &renderer)
-      : renderer{renderer} {}
+    // bigger scale -> fewer pixels and they are bigger
+    FrameBuffers(const SdlRenderer &renderer, float scale)
+      : renderer{renderer}
+      , scale{scale}
+    {
+      if (scale <= 0.f)
+        throw error("FrameBuffers constructor failed: invalid scale parameter (", scale, ") but must be > 0");
+    }
 
-    void renderWith(Function<void(const CpuImageWithDepth &)> auto &&cpuRenderer)
+    void renderWith(Function<void(const ViewOfCpuFrameBuffer &)> auto &&cpuRenderer)
     {
       allocateBuffersIfNecessary();
       cpuFrameBuffer->useWith(cpuRenderer);
       cpuFrameBuffer->useWith(
-        [&](const CpuImageWithDepth &imageWithDepth)
+        [&](const ViewOfCpuFrameBuffer &imageWithDepth)
         {
           int imagePitch = imageWithDepth.w * sizeof(imageWithDepth.image[0]);
 
-          if (SDL_UpdateTexture(renderTexture->texture, nullptr, imageWithDepth.image, imagePitch))
+          if (SDL_UpdateTexture(renderBufferTexture->texture, nullptr, imageWithDepth.image, imagePitch))
             throw error("SDL_UpdateTexture failed: ", SDL_GetError());
 
-          if (SDL_RenderCopy(renderer.renderer, renderTexture->texture, nullptr, nullptr))
+          if (SDL_RenderCopy(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr))
             throw error("SDL_RenderCopy failed: ", SDL_GetError());
         });
     }
@@ -233,23 +258,26 @@ namespace
 
   private:
     const SdlRenderer &renderer;
-    int w{-1}, h{-1};
-    std::optional<RenderTexture> renderTexture;
+    const float scale;
+    int scaledWidth{-1}, scaledHeight{-1};
+    int lastWindowWidth{-1}, lastWindowHeight{-1};
+    std::optional<RenderBufferTexture> renderBufferTexture;
     std::optional<CpuFrameBuffer> cpuFrameBuffer;
 
     void allocateBuffers()
     {
-      renderTexture.emplace(renderer, w, h);
-      cpuFrameBuffer.emplace(w, h);
+      renderBufferTexture.emplace(renderer, scaledWidth, scaledHeight);
+      cpuFrameBuffer.emplace(scaledWidth, scaledHeight);
     }
 
     void allocateBuffersIfNecessary()
     {
       SDL_Surface *windowSurface = SDL_GetWindowSurface(renderer.window.window);
 
-      if (w != windowSurface->w || h != windowSurface->h)
+      if (lastWindowWidth != windowSurface->w || lastWindowHeight != windowSurface->h)
       {
-        (w = windowSurface->w, h = windowSurface->h);
+        (lastWindowWidth = windowSurface->w, lastWindowHeight = windowSurface->h);
+        (scaledWidth = windowSurface->w / scale, scaledHeight = windowSurface->h / scale);
         allocateBuffers();
       }
     }
@@ -263,14 +291,17 @@ int main(int argc, char *argv[])
   try
   {
     Sdl sdl;
+
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, defaults::render::scaleQuality);
+
     SdlWindow window{sdl, defaults::window::width, defaults::window::height};
     SdlRenderer renderer{window};
-    FrameBuffers frameBuffers{renderer};
+    FrameBuffers frameBuffers{renderer, defaults::render::scale};
 
     //----------------------------------------------------------------------------------------------------------------------
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     auto testRenderer =
-      [](const CpuImageWithDepth &imageWithDepth)
+      [](const ViewOfCpuFrameBuffer &imageWithDepth)
       {
         for (int y = 0; y < imageWithDepth.h; ++y)
           for (int x = 0; x < imageWithDepth.w; ++x)
@@ -284,7 +315,6 @@ int main(int argc, char *argv[])
     frameBuffers.present();
 
     SDL_Delay(3000);
-
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //----------------------------------------------------------------------------------------------------------------------
 

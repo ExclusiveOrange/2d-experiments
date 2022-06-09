@@ -5,6 +5,9 @@ CPU rendering
 2.5D at best
 no perspective
 
+30 deg would give 2 width to 1 height but that might be way too extreme;
+might want closer 1:1
+
 want depth buffer; this allows things like grass and brush to intersect / overlap sprites
 want tiles & sprites to have depth channel
 want procedural and semi-procedural tiles & sprites;
@@ -54,3 +57,18 @@ reflections:
     basically:
         given reflective pixel at (x,y) with normal (nx,ny),
         can calculate reflection ray,
+
+sprite/tile depth:
+    use argb8888 format since SDL is happy with it and so is the CPU
+    a == (argb >> 24) & 0xff
+    r == (argb >> 16) & 0xff
+    g == (argb >> 8) & 0xff
+    b == argb & 0xff
+
+    can use alpha channel for depth from 0 to 255
+    but alpha 255 is a special case which means "transparent" since there is no alpha blending and we still want transparency
+
+    each sprite / tile can have its own depth bias which might be negative or positive
+    such that the actual depth of a pixel would be alpha + depth bias
+
+    for 2 horizontal to 1 vertical, I think the angle
