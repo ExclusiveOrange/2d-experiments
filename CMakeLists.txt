@@ -70,7 +70,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE util)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -EHsc")
 
 ########################################################################################################################
-# assets symlink to build directory
+# create symlink to assets/ directory in build directory
 ########################################################################################################################
 
 # thanks: https://www.reddit.com/r/cmake/comments/ms89nx/comment/gus0nqx
@@ -103,6 +103,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE "SDL2::SDL2;SDL2::SDL2main")
 #   vcpkg install sdl2-image:x64-windows
 find_package(sdl2-image CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE "SDL2::SDL2_image")
+
+# OpenGL Mathematics (glm)
+find_package(glm CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE "glm::glm")
 
 ########################################################################################################################
 # for later maybe
