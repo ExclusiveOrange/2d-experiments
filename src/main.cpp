@@ -382,6 +382,7 @@ int main(int argc, char *argv[])
     auto renderSphere =
       [](const ViewOfCpuFrameBuffer &imageWithDepth)
       {
+        constexpr const float rayOriginDistance = 50.f;
         constexpr const float viewAngle = glm::radians(30.f);
         constexpr const float scale = 6.f;
 
@@ -398,14 +399,14 @@ int main(int argc, char *argv[])
         constexpr const glm::vec3 up{0.f, 0.f, 1.f};
         constexpr const glm::vec3 down = -up;
 
-        // TODO: not sure if SDL image will be upside-down or not so may have to reverse some things here
-
         const Sphere sphere{glm::vec3{0.f}, 40.f};
         constexpr const glm::vec3 lightPosition{right * 100.f /*+ up * 100.f*/ + backward * 100.f};
         constexpr const glm::vec3 lightIntensity{1.f};
 
-        // TODO: figure out exactly correct position based on angle and distance from origin
-        glm::vec3 centerRayOrigin{backward * 100.f + up * 55.f};
+        // distance is somewhat arbitrary but should be far enough back from object that it doesn't clip
+        // backward = k * cos(viewAngle)
+        // up = k * sin(viewAngle)
+        glm::vec3 centerRayOrigin{backward * rayOriginDistance * glm::cos(viewAngle) + up * rayOriginDistance * glm::sin(viewAngle)};
         glm::vec3 unitRayDirection{glm::normalize(forward * glm::cos(viewAngle) + down * glm::sin(viewAngle))};
         glm::vec3 unitRelativeUp{glm::normalize(glm::cross(unitRayDirection, right))};
         glm::vec3 xStep = right / scale;
@@ -424,19 +425,18 @@ int main(int argc, char *argv[])
             ray.origin = centerRayOrigin + yOffset + xOffset;
 
             uint8_t distance = 255;
-
             glm::vec3 color{};
 
             if (std::optional<Intersection> i = sphere.nearestIntersection(ray))
             {
               glm::vec3 directionToLight{glm::normalize(lightPosition - i->position)};
               color = lightIntensity * glm::dot(i->normal, directionToLight);
-              distance = (uint8_t)i->distance;
+              color = glm::clamp(color, glm::vec3{0.f}, glm::vec3{1.f});
+              color *= 255.f;
+              distance = (uint8_t)glm::clamp(i->distance, 0.f, 255.f);
             }
 
-            glm::vec3 clampedColor{glm::clamp(color, glm::vec3{0.f}, glm::vec3{1.f})};
-            glm::vec3 scaledColor{clampedColor * 255.f};
-            uint32_t pixel = 0xff000000 | (uint32_t(scaledColor.x) << 16) | (uint32_t(scaledColor.y) << 8) | uint32_t(scaledColor.z);
+            uint32_t pixel = 0xff000000 | (uint32_t(color.x) << 16) | (uint32_t(color.y) << 8) | uint32_t(color.z);
 
             int dindex = y * imageWithDepth.w + x;
             imageWithDepth.image[dindex] = pixel;
