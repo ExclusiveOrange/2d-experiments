@@ -1,0 +1,10 @@
+{
+  "name": "2d-experiments",
+  "version-string": "0.1.0",
+  "homepage": "https://github.com/ExclusiveOrange/2d-experiments",
+  "dependencies": [
+    "glm",
+    "sdl2-image",
+    "sdl2"
+  ]
+}
