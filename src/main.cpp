@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iostream>
 #include <filesystem>
 #include <functional>
@@ -37,6 +38,7 @@ namespace
 
   namespace defaults::window
   {
+    constexpr const char *title = "2d-experiments";
     constexpr const int width = 1920;
     constexpr const int height = 1080;
   }
@@ -55,6 +57,11 @@ namespace
   template<class...Args>
   std::runtime_error
   error(Args &&...args) {return std::runtime_error(toString(std::forward<Args>(args)...));}
+
+  //======================================================================================================================
+  // performance measurement
+
+  using clock = std::chrono::high_resolution_clock;
 
   //======================================================================================================================
   // structs
@@ -152,7 +159,7 @@ namespace
     SdlWindow(const Sdl &, int w, int h)
       : window{
       SDL_CreateWindow(
-        "SDL Tutorial",
+        defaults::window::title,
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         w, h,
         SDL_WINDOW_SHOWN)}
@@ -550,11 +557,28 @@ int main(int argc, char *argv[])
         }
       };
 
-    frameBuffers.renderWith(testRenderer);
-//    frameBuffers.renderWith(renderSphere);
-    frameBuffers.present();
+    // render loop
+    for(bool quit=false;!quit;)
+    {
+      // handle SDL events
+      for (SDL_Event e; 0 != SDL_PollEvent(&e);)
+      {
+        if (e.type == SDL_QUIT)
+          quit = true;
+      }
 
-    SDL_Delay(3000);
+      auto tstart = clock::now();
+      frameBuffers.renderWith(testRenderer);
+//    frameBuffers.renderWith(renderSphere);
+      auto elapsedmicros = std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
+      double elapsedmillis = (double)elapsedmicros / 1000.0;
+
+      SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
+
+      frameBuffers.present();
+    }
+
+//    SDL_Delay(3000);
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //----------------------------------------------------------------------------------------------------------------------
 
