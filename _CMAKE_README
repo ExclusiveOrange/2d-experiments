@@ -1,0 +1,29 @@
+So far have cmake & vcpkg working with:
+
+CLion 2022.1.2 on x64 Windows
+Visual Studio 2022 on x64 Windows
+
+CLion 2022.1.2 on arm64 OSX
+
+HOWEVER
+Using cmake from the terminal may or may not work for you depending on which build system cmake detects on its own.
+In my case I have VS 2019 and VS 2022 installed on Windows, and cmake from the terminal detects VS 2019 for some reason,
+and the build files it generates don't even work - Visual Studio fails immediately with an obscure complaint about some internal script.
+On OSX from the terminal cmake generates build files, but it seems to put them in an expected place so when trying to
+actually make the project, it gets as far as the post-link stage but fails to create the symlink to ./assets/ because
+it tries to create it in the base project directory where it already exists.
+There is probably a way to detect where the executable is being built, and to only create a symlink to ./assets/ if
+the exe directory is different than the project base, but I can't be bothered right now since I only use CLion and
+CLion works fine with this for me on both Windows and OSX.
+
+Ultimately you could build this project without CMake if you wanted to manually deal with:
+glm
+sdl2
+sdl2-image
+
+all of which are probably simple enough to download and use in a Makefile.
+
+HOMEBREW WARNING
+I initially tried to use Homebrew for glm, sdl2 and sdl2-image; but it doesn't work on sdl2-image with CMake and it's
+a known problem and I couldn't find a working FindSDL2_Image.cmake so I gave up on that and just switched to vcpkg
+which works better anyway.
