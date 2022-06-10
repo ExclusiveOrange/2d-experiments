@@ -137,6 +137,14 @@ namespace
     }
   }
 
+  void
+  setPlatformSpecificSdlHints()
+  {
+#ifdef APPLE
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl"); // SDL tries to use Metal by default but it is catastrophically slow
+#endif
+  }
+
   //======================================================================================================================
   // another attempt to get the right safety behavior I want before I get too far into this project
 
@@ -473,6 +481,8 @@ int main(int argc, char *argv[])
     Sdl sdl;
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, defaults::render::scaleQuality);
+
+    setPlatformSpecificSdlHints();
 
     SdlWindow window{sdl, defaults::window::width, defaults::window::height};
     SdlRenderer renderer{window};

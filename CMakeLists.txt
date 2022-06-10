@@ -39,6 +39,15 @@ add_executable(${PROJECT_NAME} ${cpps})
 target_include_directories(${PROJECT_NAME} PRIVATE util)
 
 ########################################################################################################################
+# If Apple then define a C++ preprocessor definition APPLE so that special things can be done for Apple
+########################################################################################################################
+
+if (APPLE)
+    message("detected Apple platform")
+    target_compile_definitions(${PROJECT_NAME} PUBLIC APPLE)
+endif ()
+
+########################################################################################################################
 # create symlink to assets/ directory in build directory
 ########################################################################################################################
 
