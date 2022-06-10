@@ -4,6 +4,13 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+########################################################################################################################
+# IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT IMPORTANT
+# This project uses vcpkg as a submodule of this git repo.
+# TODO: write instructions for installing vcpkg
+set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Vcpkg toolchain file")
+
 project(2d-experiments CXX)
 
 # NOTICE: on Windows in CLion I was using vcpkg to manage my libraries,
@@ -67,7 +74,7 @@ add_executable(${PROJECT_NAME} ${cpps})
 target_include_directories(${PROJECT_NAME} PRIVATE util)
 
 # enable exceptions (off by default on some compilers)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -EHsc")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -EHsc")
 
 ########################################################################################################################
 # create symlink to assets/ directory in build directory
@@ -76,12 +83,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -EHsc")
 # thanks: https://www.reddit.com/r/cmake/comments/ms89nx/comment/gus0nqx
 # Set a symbolic link so exe can find the /assets folder
 set(link_src "${CMAKE_SOURCE_DIR}/assets")
-if (APPLE)
-    # dunno why APPLE is different, maybe it's not (haven't tested yet)
-    set(link_dst "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/assets")
-else ()
-    set(link_dst "${CMAKE_CURRENT_BINARY_DIR}/assets")
-endif ()
+set(link_dst "${CMAKE_CURRENT_BINARY_DIR}/assets")
 add_custom_command(
         TARGET ${PROJECT_NAME}
         POST_BUILD COMMAND ${CMAKE_COMMAND}

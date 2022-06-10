@@ -261,7 +261,7 @@ namespace
     const SdlRenderer &renderer;
     const float scale;
     int scaledWidth{-1}, scaledHeight{-1};
-    int lastWindowWidth{-1}, lastWindowHeight{-1};
+    int lastRendererWidth{ -1}, lastRendererHeight{ -1};
     std::optional<RenderBufferTexture> renderBufferTexture;
     std::optional<CpuFrameBuffer> cpuFrameBuffer;
 
@@ -273,12 +273,18 @@ namespace
 
     void allocateBuffersIfNecessary()
     {
-      SDL_Surface *windowSurface = SDL_GetWindowSurface(renderer.window.window);
+      // can't do this on Mac for some reason: it returns nullptr and the error log says there is no hardware acceleration
+//      SDL_Surface *windowSurface = SDL_GetWindowSurface(renderer.window.window);
 
-      if (lastWindowWidth != windowSurface->w || lastWindowHeight != windowSurface->h)
+      int rendererWidth, rendererHeight;
+
+      if (0 != SDL_GetRendererOutputSize(renderer.renderer, &rendererWidth, &rendererHeight))
+        throw error("SDL_GetRendererOutputSize failed: ", SDL_GetError());
+
+      if (lastRendererWidth != rendererWidth || lastRendererHeight != rendererHeight)
       {
-        (lastWindowWidth = windowSurface->w, lastWindowHeight = windowSurface->h);
-        (scaledWidth = windowSurface->w / scale, scaledHeight = windowSurface->h / scale);
+        (lastRendererWidth = rendererWidth, lastRendererHeight = rendererHeight);
+        (scaledWidth = rendererWidth / scale, scaledHeight = rendererHeight / scale);
         allocateBuffers();
       }
     }
@@ -544,8 +550,8 @@ int main(int argc, char *argv[])
         }
       };
 
-//    frameBuffers.renderWith(testRenderer);
-    frameBuffers.renderWith(renderSphere);
+    frameBuffers.renderWith(testRenderer);
+//    frameBuffers.renderWith(renderSphere);
     frameBuffers.present();
 
     SDL_Delay(3000);
