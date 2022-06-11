@@ -39,7 +39,7 @@ namespace raycasting::shapes
       const float t = glm::dot(-ray.origin, up) / dDotN;
       const glm::vec3 isect{ray.origin + t * ray.unitDirection};
 
-      if (glm::abs(glm::dot(isect, right)) > radius || glm::abs(glm::dot(isect, forward)) > radius)
+      if (glm::abs(glm::dot(isect - center, right)) > radius || glm::abs(glm::dot(isect - center, forward)) > radius)
         return std::nullopt;
 
       return Intersection{.position = isect, .normal = up, .distance = t};
@@ -48,6 +48,43 @@ namespace raycasting::shapes
   private:
     const glm::vec3 center;
     const float radius;
+  };
+
+  struct Quad : Intersectable
+  {
+    Quad(glm::vec3 center, glm::vec3 a, glm::vec3 b)
+      : p{center}, a{a}, b{b}, n{glm::normalize(glm::cross(a, b))}, al2{glm::dot(a, a)}, bl2{glm::dot(b, b)} {}
+
+    std::optional<Intersection>
+    intersect(const Ray &ray) const override
+    {
+      constexpr const float small = 0.001f;
+
+      // ray: o + t*d
+      // plane: (x - p) dot n = 0
+      // intersection:
+      //   ([o + t*d] - p) dot n = 0
+      //   (o - p) dot n + t * d dot n = 0
+      //   t = [(p - o) dot n] / (d dot n)
+      // where in this case n = raycasting::up and p = <0,0,0>
+
+      const float dDotN = glm::dot(ray.unitDirection, n);
+
+      if (-small < dDotN && dDotN < small) // ray parallel or close to parallel with plane
+        return std::nullopt;
+
+      const float t = glm::dot(p - ray.origin, n) / dDotN;
+      const glm::vec3 isect{ray.origin + t * ray.unitDirection};
+
+      if (glm::abs(glm::dot(isect - p, a)) > al2 || glm::abs(glm::dot(isect - p, b)) > bl2)
+        return std::nullopt;
+
+      return Intersection{.position = isect, .normal = up, .distance = t};
+    }
+
+  private:
+    const glm::vec3 p, a, b, n;
+    const float al2, bl2;
   };
 
   struct Sphere : Intersectable

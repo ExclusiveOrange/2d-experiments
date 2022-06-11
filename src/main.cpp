@@ -295,7 +295,7 @@ int main(int argc, char *argv[])
     raycasting::OrthogonalCamera camera{.w = (float)spriteWidth * raycasting::right};
 
     constexpr float angleAboveHorizon = 30.f;
-    constexpr float angleAroundVertical = 30.f;
+    constexpr float angleAroundVertical = 45.f;
     constexpr float camDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
 
     const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
@@ -335,7 +335,9 @@ int main(int argc, char *argv[])
       constexpr float maxDepth = camDistance + depthRange / 2;
 
       Sphere sphere{glm::vec3{0.f}, sphereRadius};
-      QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
+      //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
+      float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f;
+      Quad quad{glm::vec3{0.f}, side * forward * 0.5f, side * right * 0.5f};
 
       glm::vec3 minLight{0.2f, 0.15f, 0.1f};
 
