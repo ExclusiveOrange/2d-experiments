@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
         const ViewOfCpuImageWithDepth sprite = spriteSphere.getUnsafeView();
         const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
         const glm::ivec2 spriteSize{sprite.w, sprite.h};
-        const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
+        const glm::ivec2 spacing{spriteSize.x / 2, spriteSize.y / 4};
         const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
         
         for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)

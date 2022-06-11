@@ -11,36 +11,24 @@ drawWithDepth(
   // clip vertical
   int minsy = desty < 0 ? -desty : 0;
   int maxsy = (dest.h - desty) < src.h ? (dest.h - desty) : src.h;
-  
+
   // clip horizontal
   int minsx = destx < 0 ? -destx : 0;
   int maxsx = (dest.w - destx) < src.w ? (dest.w - destx) : src.w;
-  
-  // for each non-clipped pixel in source...
-  for (int sy = minsy; sy < maxsy; ++sy)
-  {
-    int drowstart = (desty + sy) * dest.w + destx;
-    int srowstart = sy * src.w;
-    
+
+  int sy = minsy;
+  uint32_t *__restrict psrc = src.drgb + sy * src.w;
+  uint32_t *__restrict pdestimg = dest.image + (desty + sy) * dest.w + destx;
+  int16_t *pdestdepth = dest.depth + (desty + sy) * dest.w + destx;
+
+  for (; sy < maxsy; ++sy, psrc += src.w, pdestimg += dest.w, pdestdepth += dest.w)
     for (int sx = minsx; sx < maxsx; ++sx)
-    {
-      uint32_t sdrgb = src.drgb[srowstart + sx];
-      
       // source is transparent if source depth == 255, else test against dest
-      if (sdrgb < 0xff000000)
-      {
-        int dindex = drowstart + sx;
-        int16_t ddepth = dest.depth[dindex];
-        int16_t sdepth = (sdrgb >> 24) + srcdepthbias;
-        
-        if (sdepth < ddepth)
+      if (uint32_t sdrgb = psrc[sx]; sdrgb < 0xff000000)
+        if (int16_t sdepth = (sdrgb >> 24) + srcdepthbias, ddepth = pdestdepth[sx]; sdepth < ddepth)
         {
           // depth test passed: overwrite dest image and dest depth
-          uint32_t sargb = 0xff000000 | (sdrgb & 0xffffff);
-          dest.image[dindex] = sargb;
-          dest.depth[dindex] = sdepth;
+          pdestimg[sx] = 0xff000000 | (sdrgb & 0xffffff);
+          pdestdepth[sx] = sdepth;
         }
-      }
-    }
-  }
 }
