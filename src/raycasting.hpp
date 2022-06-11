@@ -60,6 +60,7 @@ namespace raycasting
     void render(
       const ViewOfCpuImageWithDepth &destImage,
       const Intersectable &intersectable,
+      const glm::vec3 minLight,
       const DirectionalLight *directionalLights,
       int numDirectionalLights,
       float minDepth, // becomes uint8_t 0 (anything less is clamped at 0)
@@ -90,7 +91,7 @@ namespace raycasting
             for (int il = 0; il < numDirectionalLights; ++il)
               lightSum += directionalLights[il].calculate(i->position, i->normal);
             
-            glm::vec3 color = 255.f * glm::clamp(lightSum, 0.f, 1.f);
+            glm::vec3 color = 255.f * glm::clamp(lightSum, minLight, glm::vec3{1.f});
             uint8_t depth = (uint8_t)glm::clamp((i->distance - minDepth) * rDepthRange, 0.f, 255.f);
             
             drgb = (depth << 24) | (uint32_t(color.x) << 16) | (uint32_t(color.y) << 8) | uint32_t(color.z);

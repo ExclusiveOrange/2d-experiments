@@ -51,7 +51,7 @@ namespace
   
   namespace defaults::render
   {
-    constexpr const float scale = 2.f;
+    constexpr const float scale = 1.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
   
@@ -193,9 +193,10 @@ namespace
     FrameBuffers(SdlRenderer &&, int) = delete;
     
     // bigger scale -> fewer pixels and they are bigger
-    FrameBuffers(const SdlRenderer &renderer, float scale)
+    FrameBuffers(const SdlRenderer &renderer, float scale, bool flipVertical = true)
       : renderer{renderer}
       , scale{scale}
+      , flip{flipVertical ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE}
     {
       if (scale <= 0.f)
         throw error("FrameBuffers constructor failed: invalid scale parameter (", scale, ") but must be > 0");
@@ -212,9 +213,9 @@ namespace
           
           if (SDL_UpdateTexture(renderBufferTexture->texture, nullptr, imageWithDepth.image, imagePitch))
             throw error("SDL_UpdateTexture failed: ", SDL_GetError());
-          
-          if (SDL_RenderCopy(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr))
-            throw error("SDL_RenderCopy failed: ", SDL_GetError());
+  
+          if (SDL_RenderCopyEx(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr, 0.0, nullptr, flip))
+            throw error("SDL_RenderCopyEx failed: ", SDL_GetError());
         });
     }
     
@@ -223,6 +224,8 @@ namespace
   private:
     const SdlRenderer &renderer;
     const float scale;
+    const SDL_RendererFlip flip;
+    
     int scaledWidth{-1}, scaledHeight{-1};
     int lastRendererWidth{-1}, lastRendererHeight{-1};
     std::optional<RenderBufferTexture> renderBufferTexture;
@@ -289,7 +292,7 @@ int main(int argc, char *argv[])
       using namespace raycasting::shapes;
       
       constexpr float cameraDistanceFromOrigin = 200.f;
-      constexpr float sphereRadius = 50.f;
+      constexpr float sphereRadius = 62.f;
       constexpr float depthRange = 128.f;
       
       OrthogonalCamera camera{
@@ -302,12 +305,15 @@ int main(int argc, char *argv[])
       
       Sphere sphere{glm::vec3{0.f}, sphereRadius};
       
+      glm::vec3 minLight{0.2f, 0.15f, 0.1f};
+      
       std::vector<DirectionalLight> directionalLights{
-        DirectionalLight{forward, glm::vec3{1.f, 1.f, 1.f}}};
+        DirectionalLight{glm::normalize(2.f * forward + down), glm::vec3{1.f, 1.f, 1.f}}};
       
       camera.render(
         spriteSphere.getUnsafeView(),
         sphere,
+        minLight,
         &directionalLights[0],
         directionalLights.size(),
         minDepth, maxDepth);
@@ -320,27 +326,23 @@ int main(int argc, char *argv[])
         imageWithDepth.clear(0xff000000, 0x7fffffff);
         
         const ViewOfCpuImageWithDepth sprite = spriteSphere.getUnsafeView();
+        const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
+        const glm::ivec2 spriteSize{sprite.w, sprite.h};
+        const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
+        const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
         
-        //drawWithoutDepth(
-        //  imageWithDepth,
-        //  imageWithDepth.w / 2 - sprite.w / 2, imageWithDepth.h / 2 - sprite.h / 2,
-        //  sprite);
-        
-        glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
-        glm::ivec2 spriteSize{sprite.w, sprite.h};
-        
-        for (int i = -10; i < 10; ++i)
-        {
-          glm::ivec2 destPos = destCenter - spriteSize / 2 + i * glm::ivec2{spriteSize.x / 4, 0};
-          int depthBias = 128;
-  
-          drawWithDepth(
-            imageWithDepth,
-            destPos.x, destPos.y,
-            sprite,
-            depthBias);
-          
-        }
+        for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
+          for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
+          {
+            glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
+            int depthBias = 2 * destPos.y;
+            destPos.x += (pos.y & 1) * spacing.x / 2;
+            drawWithDepth(
+              imageWithDepth,
+              destPos.x, destPos.y,
+              sprite,
+              depthBias);
+          }
       };
     
     // render loop

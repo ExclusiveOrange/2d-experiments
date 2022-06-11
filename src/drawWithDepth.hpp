@@ -24,8 +24,7 @@ drawWithDepth(
     
     for (int sx = minsx; sx < maxsx; ++sx)
     {
-      int sindex = srowstart + sx;
-      uint32_t sdrgb = src.drgb[sindex];
+      uint32_t sdrgb = src.drgb[srowstart + sx];
       
       // source is transparent if source depth == 255, else test against dest
       if (sdrgb < 0xff000000)
@@ -33,7 +32,7 @@ drawWithDepth(
         int dindex = drowstart + sx;
         int ddepth = dest.depth[dindex];
         
-        int sdepth = ((sdrgb & 0xff000000) >> 24) + srcdepthbias;
+        int sdepth = (sdrgb >> 24) + srcdepthbias;
         
         if (sdepth < ddepth)
         {
