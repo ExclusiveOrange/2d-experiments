@@ -6,7 +6,7 @@
 static void
 drawWithDepth(
   ViewOfCpuFrameBuffer dest, int destx, int desty,
-  ViewOfCpuImageWithDepth src, int srcdepthbias)
+  ViewOfCpuImageWithDepth src, int16_t srcdepthbias)
 {
   // clip vertical
   int minsy = desty < 0 ? -desty : 0;
@@ -30,9 +30,8 @@ drawWithDepth(
       if (sdrgb < 0xff000000)
       {
         int dindex = drowstart + sx;
-        int ddepth = dest.depth[dindex];
-        
-        int sdepth = (sdrgb >> 24) + srcdepthbias;
+        int16_t ddepth = dest.depth[dindex];
+        int16_t sdepth = (sdrgb >> 24) + srcdepthbias;
         
         if (sdepth < ddepth)
         {

@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
     auto renderSprite =
       [&](const ViewOfCpuFrameBuffer &imageWithDepth)
       {
-        imageWithDepth.clear(0xff000000, 0x7fffffff);
+        imageWithDepth.clear(0xff000000, 0x7fff);
         
         const ViewOfCpuImageWithDepth sprite = spriteSphere.getUnsafeView();
         const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
