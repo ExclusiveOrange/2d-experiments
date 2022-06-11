@@ -2,13 +2,59 @@
 
 #include "raycasting.hpp"
 
+// TODO: delete
+#include <iostream>
+
 namespace raycasting::shapes
 {
+  // TODO: make some kind of glm helper header with this in it
+  std::ostream &operator<<(std::ostream &os, const glm::vec3 v)
+  {
+    os << "<" << v.x << ", " << v.y << ", " << v.z << ">";
+    return os;
+  }
+
+  struct QuadUp : Intersectable
+  {
+    QuadUp(glm::vec3 center, float radius)
+      : center{center}, radius{radius} {}
+
+    std::optional<Intersection>
+    intersect(const Ray &ray) const override
+    {
+      constexpr const float small = 0.001f;
+      // ray: o + t*d
+      // plane: (x - p) dot n = 0
+      // intersection:
+      //   ([o + t*d] - p) dot n = 0
+      //   (o - p) dot n + t * d dot n = 0
+      //   t = [(p - o) dot n] / (d dot n)
+      // where in this case n = raycasting::up and p = <0,0,0>
+
+      const float dDotN = glm::dot(ray.unitDirection, up);
+
+      if (-small < dDotN && dDotN < small) // ray parallel or close to parallel with plane
+        return std::nullopt;
+
+      const float t = glm::dot(-ray.origin, up) / dDotN;
+      const glm::vec3 isect{ray.origin + t * ray.unitDirection};
+
+      if (glm::abs(glm::dot(isect, right)) > radius || glm::abs(glm::dot(isect, forward)) > radius)
+        return std::nullopt;
+
+      return Intersection{.position = isect, .normal = up, .distance = t};
+    }
+
+  private:
+    const glm::vec3 center;
+    const float radius;
+  };
+
   struct Sphere : Intersectable
   {
     Sphere(glm::vec3 center, float radius)
       : center{center}, sqradius{radius * radius} {}
-    
+
     std::optional<Intersection>
     intersect(const Ray &ray) const override
     {
@@ -16,40 +62,40 @@ namespace raycasting::shapes
       // sphere is |x - center| = radius
       // then intersections satisfy |(ray.origin + d * ray.unitDirection) - center| = radius
       // solve for d
-      
+
       auto square = [](auto x) {return x * x;};
-      
+
       const glm::vec3 originMinusCenter = ray.origin - center;
       const float ray_dot_originMinusCenter = glm::dot(ray.unitDirection, originMinusCenter);
-      
+
       float insideRadical = square(ray_dot_originMinusCenter) - glm::dot(originMinusCenter, originMinusCenter) + sqradius;
-      
+
       if (insideRadical <= 0) // no intersection or exactly one glancing intersection (which I ignore)
         return std::nullopt;
-      
+
       // two intersections; want to pick most backward intersection unless behind ray origin
       float sqrtInsideRadical = glm::sqrt(insideRadical);
       float outsideRadical = -ray_dot_originMinusCenter;
-      
+
       // most forward intersection
       float d1 = outsideRadical + sqrtInsideRadical;
       if (d1 <= 0) // most-forward intersection is behind ray origin
         return std::nullopt;
-      
+
       // else most forward intersection is ahead of ray origin,
       // and most backward intersection is behind or ahead of ray origin
       float d0 = outsideRadical - sqrtInsideRadical;
-      
+
       // ray origin is inside sphere so clamp intersection to ray origin
       if (d0 < 0.f)
         return Intersection{.position = ray.origin, .normal = ray.unitDirection, .distance = 0.f};
-      
+
       // sphere is wholly ahead of ray origin and emits a surface intersection
       Intersection intersection{.position = ray.origin + d0 * ray.unitDirection, .distance = d0};
       intersection.normal = glm::normalize(intersection.position - center);
       return intersection;
     }
-  
+
   private:
     const glm::vec3 center;
     const float sqradius;

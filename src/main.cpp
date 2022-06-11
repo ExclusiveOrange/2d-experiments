@@ -19,6 +19,7 @@
 
 // third party
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <SDL.h>
 #include <SDL_image.h>
 
@@ -256,6 +257,12 @@ namespace
 
 //======================================================================================================================
 
+std::ostream &operator <<(std::ostream &os, const glm::vec3 v)
+{
+  os << "<" << v.x << ", " << v.y << ", " << v.z << ">";
+  return os;
+}
+
 int main(int argc, char *argv[])
 {
   try
@@ -282,34 +289,59 @@ int main(int argc, char *argv[])
             imageWithDepth.image[y * imageWithDepth.w + x] = p;
           }
       };
-    
+
     // TEMPORARY: prepare test sprite / tile
     constexpr const int spriteWidth = 128, spriteHeight = 128;
+    raycasting::OrthogonalCamera camera{.w = (float)spriteWidth * raycasting::right};
+
+    constexpr float angleAboveHorizon = 30.f;
+    constexpr float angleAroundVertical = 30.f;
+    constexpr float camDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
+
+    const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
+    const glm::mat4 rotAboveHorizonThenAroundVertical{glm::rotate(rotAboveHorizon, glm::radians(angleAroundVertical), raycasting::up)};
+
+    auto mul = [](glm::vec3 v, glm::mat4 m)
+    {
+      return glm::vec3(glm::vec4(v, 1.f) * m);
+    };
+
+    camera.position = mul(raycasting::backward * camDistance, rotAboveHorizonThenAroundVertical);
+    camera.normal = -glm::normalize(camera.position);
+    camera.w = (float)spriteWidth * mul(raycasting::right, rotAboveHorizonThenAroundVertical);
+    camera.h = (float)spriteHeight * mul(raycasting::up, rotAboveHorizonThenAroundVertical);
+    //camera.h = glm::cross(camera.w, camera.normal);
+    //const glm::vec3 cameraPosition{glm::vec3(glm::vec4(raycasting::backward * camDistance, 1.f) * rotAboveHorizonThenAroundVertical)};
+
+    const float groundDistancePerCameraY = [&]
+    {
+      float tanAngle{glm::tan(glm::radians(90.f - angleAboveHorizon))};
+      return glm::sqrt(tanAngle * tanAngle + 1);
+    }();
+
+    std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
+
     CpuImageWithDepth spriteSphere{spriteWidth, spriteHeight};
-    
+    CpuImageWithDepth spriteQuad{spriteWidth, spriteHeight};
+
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
-      
-      constexpr float cameraDistanceFromOrigin = 200.f;
+
       constexpr float sphereRadius = 62.f;
       constexpr float depthRange = 128.f;
-      
-      OrthogonalCamera camera{
-        .position = backward * cameraDistanceFromOrigin,
-        .normal = forward,
-        .w = (float)spriteWidth * right, .h = (float)spriteHeight * up};
-      
-      constexpr float minDepth = cameraDistanceFromOrigin - depthRange / 2;
-      constexpr float maxDepth = cameraDistanceFromOrigin + depthRange / 2;
-      
+
+      constexpr float minDepth = camDistance - depthRange / 2;
+      constexpr float maxDepth = camDistance + depthRange / 2;
+
       Sphere sphere{glm::vec3{0.f}, sphereRadius};
-      
+      QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
+
       glm::vec3 minLight{0.2f, 0.15f, 0.1f};
-      
+
       std::vector<DirectionalLight> directionalLights{
         DirectionalLight{glm::normalize(2.f * forward + down), glm::vec3{1.f, 1.f, 1.f}}};
-      
+
       camera.render(
         spriteSphere.getUnsafeView(),
         sphere,
@@ -317,7 +349,19 @@ int main(int argc, char *argv[])
         &directionalLights[0],
         directionalLights.size(),
         minDepth, maxDepth);
+
+      camera.render(
+        spriteQuad.getUnsafeView(),
+        quad,
+        minLight,
+        &directionalLights[0],
+        directionalLights.size(),
+        minDepth, maxDepth);
     }
+
+    ViewOfCpuImageWithDepth sprite;
+    //sprite = spriteSphere.getUnsafeView();
+    sprite = spriteQuad.getUnsafeView();
 
     // TEMPORARY: function to render scene with a sprite
     auto renderSprite =
@@ -325,26 +369,33 @@ int main(int argc, char *argv[])
       {
         imageWithDepth.clear(0xff000000, 0x7fff);
 
-        const ViewOfCpuImageWithDepth sprite = spriteSphere.getUnsafeView();
         const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
         const glm::ivec2 spriteSize{sprite.w, sprite.h};
-        const glm::ivec2 spacing{spriteSize.x / 2, spriteSize.y / 4};
-        const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
+        //const glm::ivec2 spacing{spriteSize.x / 2, spriteSize.y / 4};
+        //const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
 
-        for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
-          for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
-          {
-            glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
-            int depthBias = 2 * destPos.y;
-            destPos.x += (pos.y & 1) * spacing.x / 2;
-            drawWithDepth(
-              imageWithDepth,
-              destPos.x, destPos.y,
-              sprite,
-              depthBias);
-          }
+        glm::ivec2 destPos = destCenter - spriteSize / 2;
+
+        drawWithDepth(
+          imageWithDepth,
+          destPos.x, destPos.y,
+          sprite,
+          0);
+
+        //for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
+        //  for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
+        //  {
+        //    glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
+        //    int depthBias = 2 * destPos.y;
+        //    destPos.x += (pos.y & 1) * spacing.x / 2;
+        //    drawWithDepth(
+        //      imageWithDepth,
+        //      destPos.x, destPos.y,
+        //      sprite,
+        //      depthBias);
+        //  }
       };
-    
+
     // render loop
     for (bool quit = false; !quit;)
     {
@@ -354,16 +405,16 @@ int main(int argc, char *argv[])
         if (e.type == SDL_QUIT)
           quit = true;
       }
-      
+
       auto tstart = clock::now();
       //frameBuffers.renderWith(testRenderer);
       //frameBuffers.renderWith(renderSphere);
       frameBuffers.renderWith(renderSprite);
       auto elapsedmillis = (1.0 / 1000.0) * std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
       //double elapsedmillis = (double)elapsedmicros / 1000.0;
-      
+
       SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
-      
+
       frameBuffers.present();
     }
     
