@@ -1,5 +1,6 @@
 #pragma once
 
+#include "clip.hpp"
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 
@@ -8,11 +9,10 @@ drawWithDepth(
   ViewOfCpuFrameBuffer dest, int destx, int desty,
   ViewOfCpuImageWithDepth src, int16_t srcdepthbias)
 {
-  // clip
-  int minsy = desty < 0 ? -desty : 0;
-  int maxsy = (dest.h - desty) < src.h ? (dest.h - desty) : src.h;
-  int minsx = destx < 0 ? -destx : 0;
-  int maxsx = (dest.w - destx) < src.w ? (dest.w - destx) : src.w;
+  int minsy = clipMin(desty, dest.h, src.h);
+  int maxsy = clipMax(desty, dest.h, src.h);
+  int minsx = clipMin(destx, dest.w, src.w);
+  int maxsx = clipMax(destx, dest.w, src.w);
 
   // optimized for looping
   int sy = minsy;

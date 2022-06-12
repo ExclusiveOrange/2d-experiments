@@ -53,7 +53,7 @@ namespace
   
   namespace defaults::render
   {
-    constexpr const float scale = 1.f;
+    constexpr const float scale = 2.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
   
@@ -316,8 +316,9 @@ int main(int argc, char *argv[])
       std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     }
 
-    constexpr float angleAboveHorizon = 30.f; //30.f;
-    constexpr float angleAroundVertical = 30.f;
+    constexpr float angleAboveHorizon = 30.f;
+    //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
+    constexpr float angleAroundVertical = 0.f;
     constexpr float camDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
 
     const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
@@ -332,8 +333,6 @@ int main(int argc, char *argv[])
     camera.normal = -glm::normalize(camera.position);
     camera.w = (float)spriteWidth * mul(raycasting::right, rotAboveHorizonThenAroundVertical);
     camera.h = (float)spriteHeight * mul(raycasting::up, rotAboveHorizonThenAroundVertical);
-    //camera.h = glm::cross(camera.w, camera.normal);
-    //const glm::vec3 cameraPosition{glm::vec3(glm::vec4(raycasting::backward * camDistance, 1.f) * rotAboveHorizonThenAroundVertical)};
 
     const float groundDistancePerCameraY = [&]
     {
@@ -358,7 +357,7 @@ int main(int argc, char *argv[])
       using namespace raycasting;
       using namespace raycasting::shapes;
 
-      constexpr float sphereRadius = 62.f;
+      constexpr float sphereRadius = 30.f;
       constexpr float depthRange = 128.f;
 
       constexpr float minDepth = camDistance - depthRange / 2;
@@ -366,13 +365,13 @@ int main(int argc, char *argv[])
 
       Sphere sphere{glm::vec3{0.f}, sphereRadius};
       //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
-      float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f;
-      Quad quad{glm::vec3{0.f}, side * forward * 0.5f, side * right * 0.5f};
+      float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.3f;
+      Quad quad{glm::vec3{0.f}, 0.5f * side * glm::normalize(3.f * forward + up), side * glm::normalize(2.f * right + up)};
 
       glm::vec3 minLight{0.2f, 0.15f, 0.1f};
 
       std::vector<DirectionalLight> directionalLights{
-        DirectionalLight{glm::normalize(2.f * forward + down), glm::vec3{1.f, 1.f, 1.f}}};
+        DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
 
       camera.render(
         spriteSphere.getUnsafeView(),
@@ -392,8 +391,8 @@ int main(int argc, char *argv[])
     }
 
     ViewOfCpuImageWithDepth sprite;
-    //sprite = spriteSphere.getUnsafeView();
-    sprite = spriteQuad.getUnsafeView();
+    sprite = spriteSphere.getUnsafeView();
+    //sprite = spriteQuad.getUnsafeView();
 
     // TEMPORARY: function to render scene with a sprite
     auto renderSprite =
@@ -403,29 +402,46 @@ int main(int argc, char *argv[])
 
         const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
         const glm::ivec2 spriteSize{sprite.w, sprite.h};
-        //const glm::ivec2 spacing{spriteSize.x / 2, spriteSize.y / 4};
-        //const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
+        const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
+        const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
 
-        glm::ivec2 destPos = destCenter - spriteSize / 2;
+        //glm::ivec2 destPos = destCenter - spriteSize / 2;
 
-        drawWithDepth(
-          imageWithDepth,
-          destPos.x, destPos.y,
-          sprite,
-          0);
+        //drawWithDepth(
+        //  imageWithDepth,
+        //  destPos.x, destPos.y,
+        //  sprite,
+        //  0);
 
-        //for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
-        //  for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
-        //  {
-        //    glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
-        //    int depthBias = 2 * destPos.y;
-        //    destPos.x += (pos.y & 1) * spacing.x / 2;
-        //    drawWithDepth(
-        //      imageWithDepth,
-        //      destPos.x, destPos.y,
-        //      sprite,
-        //      depthBias);
-        //  }
+        for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
+          for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
+          {
+            glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
+            int depthBias = 2 * destPos.y;
+            destPos.x += (pos.y & 1) * spacing.x / 2;
+
+            drawWithDepth(
+              imageWithDepth,
+              destPos.x, destPos.y,
+              spriteSphere.getUnsafeView(),
+              depthBias);
+
+            drawWithDepth(
+              imageWithDepth,
+              destPos.x, destPos.y,
+              spriteQuad.getUnsafeView(),
+              depthBias);
+
+            //drawWithoutDepth(
+            //  imageWithDepth,
+            //  destPos.x, destPos.y,
+            //  spriteQuad.getUnsafeView());
+
+            //drawWithoutDepth(
+            //  imageWithDepth,
+            //  destPos.x, destPos.y,
+            //  spriteSphere.getUnsafeView());
+          }
       };
 
     // render loop

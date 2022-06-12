@@ -70,14 +70,18 @@ namespace raycasting::shapes
 
       const float dDotN = glm::dot(ray.unitDirection, n);
 
-      if (-small < dDotN && dDotN < small) // ray parallel or close to parallel with plane
-        return std::nullopt;
+      if (-small < dDotN && dDotN < small)
+        return std::nullopt; // ray parallel or close to parallel with plane
 
       const float t = glm::dot(p - ray.origin, n) / dDotN;
+
+      if (t < 0)
+        return std::nullopt; // ray starts after intersection
+
       const glm::vec3 isect{ray.origin + t * ray.unitDirection};
 
       if (glm::abs(glm::dot(isect - p, a)) > al2 || glm::abs(glm::dot(isect - p, b)) > bl2)
-        return std::nullopt;
+        return std::nullopt; // ray intersects plane but not within bounds of quad
 
       return Intersection{.position = isect, .normal = up, .distance = t};
     }

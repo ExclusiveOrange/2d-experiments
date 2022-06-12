@@ -8,14 +8,11 @@ drawWithoutDepth(
   ViewOfCpuFrameBuffer dest, int destx, int desty,
   ViewOfCpuImageWithDepth src)
 {
-  // clip vertical
-  int minsy = desty < 0 ? -desty : 0;
-  int maxsy = (dest.h - desty) < src.h ? (dest.h - desty) : src.h;
-  
-  // clip horizontal
-  int minsx = destx < 0 ? -destx : 0;
-  int maxsx = (dest.w - destx) < src.w ? (dest.w - destx) : src.w;
-  
+  int minsy = clipMin(desty, dest.h, src.h);
+  int maxsy = clipMax(desty, dest.h, src.h);
+  int minsx = clipMin(destx, dest.w, src.w);
+  int maxsx = clipMax(destx, dest.w, src.w);
+
   // for each non-clipped pixel in source...
   for (int sy = minsy; sy < maxsy; ++sy)
   {
