@@ -54,22 +54,29 @@ namespace raycasting
   
   struct OrthogonalCamera
   {
-    glm::vec3 position, normal;
+    // position is always at origin
+    glm::vec3 normal;
     glm::vec3 w, h;
-    
+
+    // TODO: this way of dealing with depth may be over-complicated.
+    // Instead it might be simpler to always assume that the camera plane intersects the origin,
+    // and then allow intersectable to return positive or negative distance values which correspond 1:1 with the depth value.
+    // Then to store in a byte a bias of +127 so that a pixel exactly at the origin has a stored depth of 127,
+    // and the closest pixel that can be stored would have a depth of 0 (-127) and the farthest a depth of 254 (+127)
+    // with the value 255 being a special value to indicate transparency.
     void render(
       const ViewOfCpuImageWithDepth &destImage,
-      const Intersectable &intersectable,
+      const Intersectable &intersectable, // should not cull intersections "behind" the camera, instead simply return negative distance
       const glm::vec3 minLight,
       const DirectionalLight *directionalLights,
-      int numDirectionalLights,
-      float minDepth, // becomes uint8_t 0 (anything less is clamped at 0)
-      float maxDepth) // becomes uint8_t 254 (anything greater is clamped at 255, the special transparency value)
+      int numDirectionalLights)
+      //float minDepth, // becomes uint8_t 0 (anything less is clamped at 0)
+      //float maxDepth) // becomes uint8_t 254 (anything greater is clamped at 255, the special transparency value)
     const
     {
       const glm::vec3 horStep = this->w / (float)destImage.w;
       const glm::vec3 verStep = this->h / (float)destImage.h;
-      const float rDepthRange = 254.f / (maxDepth - minDepth);
+      //const float rDepthRange = 254.f / (maxDepth - minDepth);
       
       Ray ray{.unitDirection = this->normal};
       
@@ -80,7 +87,7 @@ namespace raycasting
         for (int x = 0; x < destImage.w; ++x)
         {
           glm::vec3 xOffset = (destImage.w * -0.5f + x + 0.5f) * horStep;
-          ray.origin = this->position + yOffset + xOffset;
+          ray.origin = yOffset + xOffset; // this camera's origin is always the world origin
           
           uint32_t drgb;
           
@@ -92,7 +99,10 @@ namespace raycasting
               lightSum += directionalLights[il].calculate(i->position, i->normal);
             
             glm::vec3 color = 255.f * glm::clamp(lightSum, minLight, glm::vec3{1.f});
-            uint8_t depth = (uint8_t)glm::clamp((i->distance - minDepth) * rDepthRange, 0.f, 255.f);
+
+            // old way of calculating depth from minDepth, maxDepth
+            //uint8_t depth = (uint8_t)glm::clamp((i->distance - minDepth) * rDepthRange, 0.f, 255.f);
+            uint8_t depth = (uint8_t)(127.f + glm::clamp(i->distance, -127.f, 128.f));
             
             drgb = (depth << 24) | (uint32_t(color.x) << 16) | (uint32_t(color.y) << 8) | uint32_t(color.z);
           }

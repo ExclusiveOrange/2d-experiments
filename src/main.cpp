@@ -268,7 +268,6 @@ namespace testing
   public:
     SpriteRenderer(
       const raycasting::OrthogonalCamera &camera,
-      const float cameraDistance,
       int spriteWidth, int spriteHeight)
       : spriteSize{spriteWidth, spriteHeight}
       , spriteSphere{spriteWidth, spriteHeight}
@@ -279,9 +278,6 @@ namespace testing
 
       const float sphereRadius = 30.f;
       const float depthRange = 128.f;
-
-      const float minDepth = cameraDistance - depthRange / 2;
-      const float maxDepth = cameraDistance + depthRange / 2;
 
       Sphere sphere{glm::vec3{0.f}, sphereRadius};
       //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
@@ -297,16 +293,14 @@ namespace testing
         sphere,
         minLight,
         &directionalLights[0],
-        directionalLights.size(),
-        minDepth, maxDepth);
+        directionalLights.size());
 
       camera.render(
         spriteQuad.getUnsafeView(),
         quad,
         minLight,
         &directionalLights[0],
-        directionalLights.size(),
-        minDepth, maxDepth);
+        directionalLights.size());
     }
 
     void render(const ViewOfCpuFrameBuffer &frameBuffer)
@@ -364,11 +358,6 @@ namespace testing
       using namespace raycasting::shapes;
 
       // generate tile image
-      const float cameraDistance = 200.f;
-      // TODO: calculate depthRange from boundaries of tile in world space projected onto camera, somehow
-      const float depthRange = 128.f;
-      const float minDepth = cameraDistance - depthRange / 2;
-      const float maxDepth = cameraDistance + depthRange / 2;
 
       const Sphere sphere{glm::vec3{0.f}, tileSizeWorld.x * 0.35f};
       const Intersectable &intersectable = sphere;
@@ -381,8 +370,7 @@ namespace testing
         intersectable,
         minLight,
         &directionalLights[0],
-        directionalLights.size(),
-        minDepth, maxDepth);
+        directionalLights.size());
     }
 
     void render(
@@ -394,11 +382,14 @@ namespace testing
       glm::ivec2 frameBufferSize{frameBuffer.w, frameBuffer.h};
       glm::ivec2 destpos = frameBufferSize / 2 - tileSizeScreen / 2;
 
-      drawWithDepth(
-        frameBuffer,
-        destpos.x, destpos.y,
-        tile0.getUnsafeView(),
-        0);
+      for (int x = -3; x < 3; ++x)
+      {
+        drawWithDepth(
+          frameBuffer,
+          destpos.x + x * 20, destpos.y,
+          tile0.getUnsafeView(),
+          0);
+      }
     }
   };
 }
@@ -476,20 +467,20 @@ int main(int argc, char *argv[])
       return glm::vec3(glm::vec4(v, 1.f) * m);
     };
 
-    camera.position = mul(raycasting::backward * cameraDistance, rotAboveHorizonThenAroundVertical);
-    camera.normal = -glm::normalize(camera.position);
+    //camera.position = mul(raycasting::backward * cameraDistance, rotAboveHorizonThenAroundVertical);
+    camera.normal = glm::normalize(mul(raycasting::forward, rotAboveHorizonThenAroundVertical));
     camera.w = (float)spriteWidth * mul(raycasting::right, rotAboveHorizonThenAroundVertical);
     camera.h = (float)spriteHeight * mul(raycasting::up, rotAboveHorizonThenAroundVertical);
 
     // camera math debugging
     {
-      const float groundDistancePerCameraY = [&]
-      {
-        float tanAngle{glm::tan(glm::radians(90.f - angleAboveHorizon))};
-        return glm::sqrt(tanAngle * tanAngle + 1);
-      }();
+      //const float groundDistancePerCameraY = [&]
+      //{
+      //  float tanAngle{glm::tan(glm::radians(90.f - angleAboveHorizon))};
+      //  return glm::sqrt(tanAngle * tanAngle + 1);
+      //}();
 
-      std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
+      //std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
 
       // TODO: delete
       {
