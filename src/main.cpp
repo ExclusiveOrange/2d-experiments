@@ -32,6 +32,7 @@
 #include "raycasting_shapes.hpp"
 
 // utility
+#include "glmprint.hpp"
 #include "NoCopyNoMove.hpp"
 #include "toString.hpp"
 
@@ -257,12 +258,6 @@ namespace
 
 //======================================================================================================================
 
-std::ostream &operator <<(std::ostream &os, const glm::vec3 v)
-{
-  os << "<" << v.x << ", " << v.y << ", " << v.z << ">";
-  return os;
-}
-
 int main(int argc, char *argv[])
 {
   try
@@ -294,8 +289,35 @@ int main(int argc, char *argv[])
     constexpr const int spriteWidth = 128, spriteHeight = 128;
     raycasting::OrthogonalCamera camera{.w = (float)spriteWidth * raycasting::right};
 
-    constexpr float angleAboveHorizon = 30.f;
-    constexpr float angleAroundVertical = 45.f;
+    // ANGLES
+    // if the desired w:h ratio is 2:1 then angle above horizon should be 30 deg
+    // formula:
+    //   angle above horizon = 90 deg - atan(sqrt(ratio^2 - 1))
+    // TABLE
+    //   w h ang
+    //   2 1 30
+    //   5 3 36.8698976
+    //   3 2 41.8103149
+    //   4 3 48.5903779
+    //   5 4 53.1301024
+
+    constexpr auto angleInDegreesFromWidthToHeightRatio = [](int w, int h)
+    {
+      const float ratio = (float)w / h;
+      return 90.f - glm::degrees(glm::atan(glm::sqrt(ratio * ratio - 1.f)));
+    };
+
+    struct Ratio { int w, h; };
+
+    Ratio ratios[] = {{2, 1}, {5, 3}, {3, 2}, {4, 3}, {5, 4}};
+
+    for (Ratio &ratio : ratios)
+    {
+      std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
+    }
+
+    constexpr float angleAboveHorizon = 30.f; //30.f;
+    constexpr float angleAroundVertical = 30.f;
     constexpr float camDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
 
     const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
@@ -320,6 +342,14 @@ int main(int argc, char *argv[])
     }();
 
     std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
+
+    // TODO: delete
+    {
+      float w_to_x = glm::dot(raycasting::right, camera.w) / glm::length(camera.w);
+      float h_to_y = glm::dot(raycasting::forward, camera.h) / glm::length(camera.h);
+
+      std::cout << "w_to_x: " << w_to_x << ", h_to_y: " << h_to_y << std::endl;
+    }
 
     CpuImageWithDepth spriteSphere{spriteWidth, spriteHeight};
     CpuImageWithDepth spriteQuad{spriteWidth, spriteHeight};
