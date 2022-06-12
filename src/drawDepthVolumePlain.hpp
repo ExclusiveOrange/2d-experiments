@@ -12,10 +12,10 @@ drawDepthVolumePlain(
   ViewOfCpuDepthVolume src, int16_t srcdepthbias,
   glm::vec3 rgb)
 {
-  int minsy = clipMin(desty, dest.h, src.h);
-  int maxsy = clipMax(desty, dest.h, src.h);
-  int minsx = clipMin(destx, dest.w, src.w);
-  int maxsx = clipMax(destx, dest.w, src.w);
+  const int minsy = clipMin(desty, dest.h, src.h);
+  const int maxsy = clipMax(desty, dest.h, src.h);
+  const int minsx = clipMin(destx, dest.w, src.w);
+  const int maxsx = clipMax(destx, dest.w, src.w);
 
   // TODO
 }

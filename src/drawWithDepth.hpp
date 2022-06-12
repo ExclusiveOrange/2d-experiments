@@ -9,10 +9,10 @@ drawWithDepth(
   ViewOfCpuFrameBuffer dest, int destx, int desty,
   ViewOfCpuImageWithDepth src, int16_t srcdepthbias)
 {
-  int minsy = clipMin(desty, dest.h, src.h);
-  int maxsy = clipMax(desty, dest.h, src.h);
-  int minsx = clipMin(destx, dest.w, src.w);
-  int maxsx = clipMax(destx, dest.w, src.w);
+  const int minsy = clipMin(desty, dest.h, src.h);
+  const int maxsy = clipMax(desty, dest.h, src.h);
+  const int minsx = clipMin(destx, dest.w, src.w);
+  const int maxsx = clipMax(destx, dest.w, src.w);
 
   // optimized for looping
   int sy = minsy;

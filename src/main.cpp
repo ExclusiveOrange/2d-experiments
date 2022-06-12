@@ -42,7 +42,7 @@ namespace
   {
     constexpr const Uint32 renderFormat = SDL_PIXELFORMAT_ARGB8888;
   }
-  
+
   namespace constants::tile
   {
     constexpr const int width = 32;
@@ -50,57 +50,57 @@ namespace
     constexpr const int centerx = width / 2;
     constexpr const int centery = height / 2;
   }
-  
+
   namespace defaults::render
   {
     constexpr const float scale = 2.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
-  
+
   namespace defaults::window
   {
     constexpr const char *title = "2d-experiments";
     constexpr const int width = 1200;
     constexpr const int height = 900;
   }
-  
+
   namespace defaults::paths
   {
     const std::filesystem::path assets = "assets";
     const std::filesystem::path images = assets / "images";
   }
-  
+
   //======================================================================================================================
   // error transmission
-  
+
   using errmsg = std::optional<std::string>;
-  
-  template< class...Args >
+
+  template<class...Args>
   std::runtime_error
   error(Args &&...args) {return std::runtime_error(toString(std::forward<Args>(args)...));}
-  
+
   //======================================================================================================================
   // performance measurement
-  
+
   using clock = std::chrono::high_resolution_clock;
-  
+
   //======================================================================================================================
   // structs
-  
+
   struct Images : NoCopyNoMove
   {
     static constexpr const char *test1File = "2-1 terrain tile 1.png";
     SDL_Surface *test1{};
-    
+
     ~Images()
     {
       SDL_FreeSurface(test1);
     }
   };
-  
+
   //======================================================================================================================
   // misc functions
-  
+
   void
   setPlatformSpecificSdlHints()
   {
@@ -108,10 +108,10 @@ namespace
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl"); // SDL tries to use Metal by default but it is catastrophically slow
 #endif
   }
-  
+
   //======================================================================================================================
   // another attempt to get the right safety behavior I want before I get too far into this project
-  
+
   struct Sdl : NoCopyNoMove
   {
     Sdl()
@@ -119,19 +119,19 @@ namespace
       if (SDL_Init(SDL_INIT_VIDEO) < 0)
         throw error("SDL_Init failed! SDL_Error: ", SDL_GetError());
     }
-    
+
     ~Sdl() {SDL_Quit();}
   };
-  
+
   struct SdlWindow : NoCopyNoMove
   {
     // TODO: figure out how to deal with Apple retina resolution,
     // where the SDL_CreateWindow actually takes width, height in points, not pixels,
     // so the size of everything is wrong.
-    
+
     // do not pass a temporary Sdl
     SdlWindow(Sdl &&, int w, int h) = delete;
-    
+
     SdlWindow(const Sdl &, int w, int h)
       : window{
       SDL_CreateWindow(
@@ -144,17 +144,17 @@ namespace
       if (window == nullptr)
         throw error("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
     }
-    
+
     SDL_Window *const window;
-    
+
     ~SdlWindow() {SDL_DestroyWindow(window);}
   };
-  
+
   struct SdlRenderer : NoCopyNoMove
   {
     // do not pass a temporary SdlWindow
     SdlRenderer(SdlWindow &&) = delete;
-    
+
     SdlRenderer(const SdlWindow &window)
       : window{window}
       , renderer{SDL_CreateRenderer(window.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)}
@@ -162,19 +162,19 @@ namespace
       if (renderer == nullptr)
         throw error("SDL_CreateRenderer failed: ", SDL_GetError());
     }
-    
+
     const SdlWindow &window;
     SDL_Renderer *const renderer;
-    
+
     ~SdlRenderer() {SDL_DestroyRenderer(renderer);}
   };
-  
+
   // note: use std::optional to contain this if you want a replaceable object, then use std::optional.emplace(...)
   struct RenderBufferTexture : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
     RenderBufferTexture(SdlRenderer &&, int w, int h) = delete;
-    
+
     RenderBufferTexture(const SdlRenderer &renderer, int w, int h)
       : renderer{renderer}
       , texture{SDL_CreateTexture(renderer.renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, w, h)}
@@ -182,18 +182,18 @@ namespace
       if (texture == nullptr)
         throw error("SDL_CreateTexture failed: ", SDL_GetError());
     }
-    
+
     const SdlRenderer &renderer;
     SDL_Texture *const texture;
-    
+
     ~RenderBufferTexture() {SDL_DestroyTexture(texture);}
   };
-  
+
   struct FrameBuffers : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
     FrameBuffers(SdlRenderer &&, int) = delete;
-    
+
     // bigger scale -> fewer pixels and they are bigger
     FrameBuffers(const SdlRenderer &renderer, float scale, bool flipVertical = true)
       : renderer{renderer}
@@ -203,7 +203,7 @@ namespace
       if (scale <= 0.f)
         throw error("FrameBuffers constructor failed: invalid scale parameter (", scale, ") but must be > 0");
     }
-    
+
     void renderWith(Function<void(const ViewOfCpuFrameBuffer &)> auto &&cpuRenderer)
     {
       allocateBuffersIfNecessary();
@@ -212,40 +212,40 @@ namespace
         [&](const ViewOfCpuFrameBuffer &imageWithDepth)
         {
           int imagePitch = imageWithDepth.w * sizeof(imageWithDepth.image[0]);
-          
+
           if (SDL_UpdateTexture(renderBufferTexture->texture, nullptr, imageWithDepth.image, imagePitch))
             throw error("SDL_UpdateTexture failed: ", SDL_GetError());
-  
+
           if (SDL_RenderCopyEx(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr, 0.0, nullptr, flip))
             throw error("SDL_RenderCopyEx failed: ", SDL_GetError());
         });
     }
-    
+
     void present() {SDL_RenderPresent(renderer.renderer);}
-  
+
   private:
     const SdlRenderer &renderer;
     const float scale;
     const SDL_RendererFlip flip;
-    
+
     int scaledWidth{-1}, scaledHeight{-1};
     int lastRendererWidth{-1}, lastRendererHeight{-1};
     std::optional<RenderBufferTexture> renderBufferTexture;
     std::optional<CpuFrameBuffer> cpuFrameBuffer;
-    
+
     void allocateBuffers()
     {
       renderBufferTexture.emplace(renderer, scaledWidth, scaledHeight);
       cpuFrameBuffer.emplace(scaledWidth, scaledHeight);
     }
-    
+
     void allocateBuffersIfNecessary()
     {
       int rendererWidth, rendererHeight;
-      
+
       if (0 != SDL_GetRendererOutputSize(renderer.renderer, &rendererWidth, &rendererHeight))
         throw error("SDL_GetRendererOutputSize failed: ", SDL_GetError());
-      
+
       if (lastRendererWidth != rendererWidth || lastRendererHeight != rendererHeight)
       {
         (lastRendererWidth = rendererWidth, lastRendererHeight = rendererHeight);
@@ -258,20 +258,122 @@ namespace
 
 //======================================================================================================================
 
+namespace testing
+{
+  class SpriteRenderer : NoCopyNoMove
+  {
+    glm::ivec2 spriteSize;
+    CpuImageWithDepth spriteSphere, spriteQuad;
+
+  public:
+    SpriteRenderer(
+      const raycasting::OrthogonalCamera &camera,
+      const float cameraDistance,
+      int spriteWidth, int spriteHeight)
+      : spriteSize{spriteWidth, spriteHeight}
+      , spriteSphere{spriteWidth, spriteHeight}
+      , spriteQuad{spriteWidth, spriteHeight}
+    {
+      using namespace raycasting;
+      using namespace raycasting::shapes;
+
+      const float sphereRadius = 30.f;
+      const float depthRange = 128.f;
+
+      const float minDepth = cameraDistance - depthRange / 2;
+      const float maxDepth = cameraDistance + depthRange / 2;
+
+      Sphere sphere{glm::vec3{0.f}, sphereRadius};
+      //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
+      float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.3f;
+      Quad quad{glm::vec3{0.f}, 0.5f * side * glm::normalize(3.f * forward + up), side * glm::normalize(2.f * right + up)};
+
+      glm::vec3 minLight{0.2f, 0.15f, 0.1f};
+
+      std::vector<DirectionalLight> directionalLights{
+        DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
+
+      camera.render(
+        spriteSphere.getUnsafeView(),
+        sphere,
+        minLight,
+        &directionalLights[0],
+        directionalLights.size(),
+        minDepth, maxDepth);
+
+      camera.render(
+        spriteQuad.getUnsafeView(),
+        quad,
+        minLight,
+        &directionalLights[0],
+        directionalLights.size(),
+        minDepth, maxDepth);
+    }
+
+    void render(const ViewOfCpuFrameBuffer &imageWithDepth)
+    {
+      imageWithDepth.clear(0xff000000, 0x7fff);
+
+      const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
+      const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
+      const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
+
+      //glm::ivec2 destPos = destCenter - spriteSize / 2;
+      //drawWithDepth(
+      //  imageWithDepth,
+      //  destPos.x, destPos.y,
+      //  sprite,
+      //  0);
+
+      for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
+        for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
+        {
+          glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
+          int depthBias = 2 * destPos.y;
+          destPos.x += (pos.y & 1) * spacing.x / 2;
+
+          drawWithDepth(
+            imageWithDepth,
+            destPos.x, destPos.y,
+            spriteSphere.getUnsafeView(),
+            depthBias);
+
+          drawWithDepth(
+            imageWithDepth,
+            destPos.x, destPos.y,
+            spriteQuad.getUnsafeView(),
+            depthBias);
+
+          //drawWithoutDepth(
+          //  imageWithDepth,
+          //  destPos.x, destPos.y,
+          //  spriteQuad.getUnsafeView());
+
+          //drawWithoutDepth(
+          //  imageWithDepth,
+          //  destPos.x, destPos.y,
+          //  spriteSphere.getUnsafeView());
+        }
+    }
+  };
+}
+
+//======================================================================================================================
+
 int main(int argc, char *argv[])
 {
   try
   {
     Sdl sdl;
-    
+
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, defaults::render::scaleQuality);
-    
+
     setPlatformSpecificSdlHints();
-    
+
     SdlWindow window{sdl, defaults::window::width, defaults::window::height};
     SdlRenderer renderer{window};
     FrameBuffers frameBuffers{renderer, defaults::render::scale};
-    
+
     //----------------------------------------------------------------------------------------------------------------------
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     auto testRenderer =
@@ -307,19 +409,19 @@ int main(int argc, char *argv[])
       return 90.f - glm::degrees(glm::atan(glm::sqrt(ratio * ratio - 1.f)));
     };
 
-    struct Ratio { int w, h; };
+    struct Ratio {int w, h;};
 
     Ratio ratios[] = {{2, 1}, {5, 3}, {3, 2}, {4, 3}, {5, 4}};
 
-    for (Ratio &ratio : ratios)
+    for (Ratio &ratio: ratios)
     {
       std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     }
 
     constexpr float angleAboveHorizon = 30.f;
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-    constexpr float angleAroundVertical = 0.f;
-    constexpr float camDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
+    constexpr float angleAroundVertical = 30.f;
+    constexpr float cameraDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
 
     const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
     const glm::mat4 rotAboveHorizonThenAroundVertical{glm::rotate(rotAboveHorizon, glm::radians(angleAroundVertical), raycasting::up)};
@@ -329,120 +431,31 @@ int main(int argc, char *argv[])
       return glm::vec3(glm::vec4(v, 1.f) * m);
     };
 
-    camera.position = mul(raycasting::backward * camDistance, rotAboveHorizonThenAroundVertical);
+    camera.position = mul(raycasting::backward * cameraDistance, rotAboveHorizonThenAroundVertical);
     camera.normal = -glm::normalize(camera.position);
     camera.w = (float)spriteWidth * mul(raycasting::right, rotAboveHorizonThenAroundVertical);
     camera.h = (float)spriteHeight * mul(raycasting::up, rotAboveHorizonThenAroundVertical);
 
-    const float groundDistancePerCameraY = [&]
+    // camera math debugging
     {
-      float tanAngle{glm::tan(glm::radians(90.f - angleAboveHorizon))};
-      return glm::sqrt(tanAngle * tanAngle + 1);
-    }();
-
-    std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
-
-    // TODO: delete
-    {
-      float w_to_x = glm::dot(raycasting::right, camera.w) / glm::length(camera.w);
-      float h_to_y = glm::dot(raycasting::forward, camera.h) / glm::length(camera.h);
-
-      std::cout << "w_to_x: " << w_to_x << ", h_to_y: " << h_to_y << std::endl;
-    }
-
-    CpuImageWithDepth spriteSphere{spriteWidth, spriteHeight};
-    CpuImageWithDepth spriteQuad{spriteWidth, spriteHeight};
-
-    {
-      using namespace raycasting;
-      using namespace raycasting::shapes;
-
-      constexpr float sphereRadius = 30.f;
-      constexpr float depthRange = 128.f;
-
-      constexpr float minDepth = camDistance - depthRange / 2;
-      constexpr float maxDepth = camDistance + depthRange / 2;
-
-      Sphere sphere{glm::vec3{0.f}, sphereRadius};
-      //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
-      float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.3f;
-      Quad quad{glm::vec3{0.f}, 0.5f * side * glm::normalize(3.f * forward + up), side * glm::normalize(2.f * right + up)};
-
-      glm::vec3 minLight{0.2f, 0.15f, 0.1f};
-
-      std::vector<DirectionalLight> directionalLights{
-        DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
-
-      camera.render(
-        spriteSphere.getUnsafeView(),
-        sphere,
-        minLight,
-        &directionalLights[0],
-        directionalLights.size(),
-        minDepth, maxDepth);
-
-      camera.render(
-        spriteQuad.getUnsafeView(),
-        quad,
-        minLight,
-        &directionalLights[0],
-        directionalLights.size(),
-        minDepth, maxDepth);
-    }
-
-    ViewOfCpuImageWithDepth sprite;
-    sprite = spriteSphere.getUnsafeView();
-    //sprite = spriteQuad.getUnsafeView();
-
-    // TEMPORARY: function to render scene with a sprite
-    auto renderSprite =
-      [&](const ViewOfCpuFrameBuffer &imageWithDepth)
+      const float groundDistancePerCameraY = [&]
       {
-        imageWithDepth.clear(0xff000000, 0x7fff);
+        float tanAngle{glm::tan(glm::radians(90.f - angleAboveHorizon))};
+        return glm::sqrt(tanAngle * tanAngle + 1);
+      }();
 
-        const glm::ivec2 destCenter{imageWithDepth.w / 2, imageWithDepth.h / 2};
-        const glm::ivec2 spriteSize{sprite.w, sprite.h};
-        const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
-        const glm::ivec2 steps = 1 + glm::ivec2{imageWithDepth.w, imageWithDepth.h} / (2 * spacing);
+      std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
 
-        //glm::ivec2 destPos = destCenter - spriteSize / 2;
+      // TODO: delete
+      {
+        float w_to_x = glm::dot(raycasting::right, camera.w) / glm::length(camera.w);
+        float h_to_y = glm::dot(raycasting::forward, camera.h) / glm::length(camera.h);
 
-        //drawWithDepth(
-        //  imageWithDepth,
-        //  destPos.x, destPos.y,
-        //  sprite,
-        //  0);
+        std::cout << "w_to_x: " << w_to_x << ", h_to_y: " << h_to_y << std::endl;
+      }
+    }
 
-        for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
-          for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
-          {
-            glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
-            int depthBias = 2 * destPos.y;
-            destPos.x += (pos.y & 1) * spacing.x / 2;
-
-            drawWithDepth(
-              imageWithDepth,
-              destPos.x, destPos.y,
-              spriteSphere.getUnsafeView(),
-              depthBias);
-
-            drawWithDepth(
-              imageWithDepth,
-              destPos.x, destPos.y,
-              spriteQuad.getUnsafeView(),
-              depthBias);
-
-            //drawWithoutDepth(
-            //  imageWithDepth,
-            //  destPos.x, destPos.y,
-            //  spriteQuad.getUnsafeView());
-
-            //drawWithoutDepth(
-            //  imageWithDepth,
-            //  destPos.x, destPos.y,
-            //  spriteSphere.getUnsafeView());
-          }
-      };
+    testing::SpriteRenderer spriteRenderer{camera, cameraDistance, 128, 128};
 
     // render loop
     for (bool quit = false; !quit;)
@@ -457,7 +470,7 @@ int main(int argc, char *argv[])
       auto tstart = clock::now();
       //frameBuffers.renderWith(testRenderer);
       //frameBuffers.renderWith(renderSphere);
-      frameBuffers.renderWith(renderSprite);
+      frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {spriteRenderer.render(frameBuffer);});
       auto elapsedmillis = (1.0 / 1000.0) * std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
       //double elapsedmillis = (double)elapsedmicros / 1000.0;
 
@@ -465,17 +478,17 @@ int main(int argc, char *argv[])
 
       frameBuffers.present();
     }
-    
+
     //    SDL_Delay(3000);
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //----------------------------------------------------------------------------------------------------------------------
-    
+
     // TODO: render loop: check for events, render to frame buffer, present frame buffer, etc.
   }
   catch (const std::exception &e)
   {
     std::cerr << "caught exception in main: " << e.what() << std::endl;
   }
-  
+
   return 0;
 }
