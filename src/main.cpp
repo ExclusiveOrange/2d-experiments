@@ -359,11 +359,11 @@ namespace testing
 
       // generate tile image
 
-      const Sphere sphere{glm::vec3{0.f}, tileSizeWorld.x * 0.35f};
+      const Sphere sphere{glm::vec3{0.f}, tileSizeWorld.x * 0.45f};
       const Intersectable &intersectable = sphere;
 
-      glm::vec3 minLight{0.2f, 0.15f, 0.1f};
-      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
+      glm::vec3 minLight{0.2f};
+      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward), glm::vec3{1.f, 1.f, 1.f}}};
 
       camera.render(
         tile0.getUnsafeView(),
@@ -386,9 +386,9 @@ namespace testing
       {
         drawWithDepth(
           frameBuffer,
-          destpos.x + x * 20, destpos.y,
+          destpos.x + x * 21, destpos.y,
           tile0.getUnsafeView(),
-          0);
+          x * -5);
       }
     }
   };
@@ -456,8 +456,7 @@ int main(int argc, char *argv[])
 
     constexpr float angleAboveHorizon = 30.f;
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-    constexpr float angleAroundVertical = 30.f;
-    constexpr float cameraDistance = 200.f; // needs to be farther than the largest expected distance of the rendered object from the origink
+    constexpr float angleAroundVertical = 45.f;
 
     const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
     const glm::mat4 rotAboveHorizonThenAroundVertical{glm::rotate(rotAboveHorizon, glm::radians(angleAroundVertical), raycasting::up)};
@@ -472,17 +471,9 @@ int main(int argc, char *argv[])
     camera.w = (float)spriteWidth * mul(raycasting::right, rotAboveHorizonThenAroundVertical);
     camera.h = (float)spriteHeight * mul(raycasting::up, rotAboveHorizonThenAroundVertical);
 
+    // TODO: delete
     // camera math debugging
     {
-      //const float groundDistancePerCameraY = [&]
-      //{
-      //  float tanAngle{glm::tan(glm::radians(90.f - angleAboveHorizon))};
-      //  return glm::sqrt(tanAngle * tanAngle + 1);
-      //}();
-
-      //std::cout << "cameraPosition: " << camera.position << ", cameraDistance (measured): " << glm::length(camera.position) << ", groundDistancePerCameraY: " << groundDistancePerCameraY << std::endl;
-
-      // TODO: delete
       {
         float w_to_x = glm::dot(raycasting::right, camera.w) / glm::length(camera.w);
         float h_to_y = glm::dot(raycasting::forward, camera.h) / glm::length(camera.h);
