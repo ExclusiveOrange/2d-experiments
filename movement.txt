@@ -1,0 +1,25 @@
+2022.06.13
+
+Movement.
+
+Keyboard / controller.
+up/down/left/right
+chords: up+right, up+left, down+right, down+left
+
+movement should be in world space,
+however the directions should align with the screen, even if the world is rotated 45 degrees or whatever.
+
+thus movement should follow the terrain / stairs / whatever, but left should go left on the screen,
+up should go up on the screen, etc., with speed on the screen depending on the direction because of the oblique view angle.
+
+therefore the primary movement direction vectors in world space should be precomputed:
+
+moveRight = <normalized(screenToWorld(<1, 0, 0>).xy) * moveSpeed, 0>
+moveLeft = -moveRight
+moveUp = <normalized(screenToWorld(<0, 1, 0>).xy) * moveSpeed, 0>
+moveDown = -moveUp
+
+moveUpRight = <normalized(screenToWorld(<1,1,0>).xy) * moveSpeed, 0>
+moveDownLeft = -moveUpRight
+moveDownRight = <normalized(screenToWorld(<1,-1,0>).xy) * moveSpeed, 0>
+moveUpLeft = -moveDownRight
