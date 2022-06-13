@@ -482,11 +482,11 @@ int main(int argc, char *argv[])
 
     constexpr float angleAboveHorizon = 60.f;
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-    constexpr float angleAroundVertical = 30.f;
+    constexpr float angleAroundVertical = 0.f;
 
     glm::mat3x3{glm::mat4x4{}};
 
-    const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
+    const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(-angleAboveHorizon), raycasting::right)};
     const glm::mat4 rotAboveHorizonThenAroundVertical{glm::rotate(rotAboveHorizon, glm::radians(angleAroundVertical), raycasting::up)};
 
     auto transform = [](glm::vec3 v, glm::mat4 m)
@@ -494,14 +494,24 @@ int main(int argc, char *argv[])
       return glm::vec3(glm::vec4(v, 1.f) * m);
     };
 
-    glm::mat3 screenToWorld{rotAboveHorizonThenAroundVertical};
-    glm::mat3 worldToScreen{glm::inverse(screenToWorld)};
+    // TODO: delete
+    // testing glm::rotate
+    {
+      using namespace std;
+      glm::mat4 rotate30aroundright{glm::rotate(glm::mat4(1.f), glm::radians(30.f), raycasting::right)};
+      glm::vec3 rotatedforward{transform(raycasting::forward, rotate30aroundright)};
+
+      cout << "forward rotated 30 deg around right: " << rotatedforward << endl;
+    }
+
+    glm::mat3 screenToWorld{glm::inverse(rotAboveHorizonThenAroundVertical)};
+    glm::mat3 worldToScreen{rotAboveHorizonThenAroundVertical};
 
     // TODO: delete
     // testing screenToWorld, worldToScreen transforms
     {
       glm::vec3 world0{0.f};
-      glm::vec3 world1{100.f,0.f, 0.f};
+      glm::vec3 world1{100.f, 0.f, 0.f};
       glm::vec3 screen0{world0 * worldToScreen};
       glm::vec3 screen1{world1 * worldToScreen};
 
@@ -510,19 +520,15 @@ int main(int argc, char *argv[])
     }
 
     //camera.position = mul(raycasting::backward * cameraDistance, rotAboveHorizonThenAroundVertical);
-    camera.normal = glm::normalize(transform(raycasting::forward, rotAboveHorizonThenAroundVertical));
-    camera.w = (float)spriteWidth * transform(raycasting::right, rotAboveHorizonThenAroundVertical);
-    camera.h = (float)spriteHeight * transform(raycasting::up, rotAboveHorizonThenAroundVertical);
+    //camera.normal = glm::normalize(transform(raycasting::forward, rotAboveHorizonThenAroundVertical));
+    camera.normal = glm::normalize(transform(raycasting::forward, screenToWorld));
+    camera.xstep = transform(raycasting::right, rotAboveHorizonThenAroundVertical);
+    camera.ystep = transform(raycasting::up, rotAboveHorizonThenAroundVertical);
 
     // TODO: delete
     // camera math debugging
     {
-      {
-        float w_to_x = glm::dot(raycasting::right, camera.w) / glm::length(camera.w);
-        float h_to_y = glm::dot(raycasting::forward, camera.h) / glm::length(camera.h);
-
-        std::cout << "w_to_x: " << w_to_x << ", h_to_y: " << h_to_y << std::endl;
-      }
+      std::cout << "camera.xstep: " << camera.xstep << ", camera.ystep: " << camera.ystep << std::endl;
     }
 
     //testing::SpriteRenderer spriteRenderer{camera, cameraDistance, 128, 128};

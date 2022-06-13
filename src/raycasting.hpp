@@ -56,7 +56,7 @@ namespace raycasting
   {
     // position is always at origin
     glm::vec3 normal;
-    glm::vec3 w, h;
+    glm::vec3 xstep, ystep; // change in world coordinates from change in screen pixel coordinates
 
     // TODO: this way of dealing with depth may be over-complicated.
     // Instead it might be simpler to always assume that the camera plane intersects the origin,
@@ -74,19 +74,15 @@ namespace raycasting
       //float maxDepth) // becomes uint8_t 254 (anything greater is clamped at 255, the special transparency value)
     const
     {
-      const glm::vec3 horStep = this->w / (float)destImage.w;
-      const glm::vec3 verStep = this->h / (float)destImage.h;
-      //const float rDepthRange = 254.f / (maxDepth - minDepth);
-      
       Ray ray{.unitDirection = this->normal};
       
       for (int y = 0; y < destImage.h; ++y)
       {
-        glm::vec3 yOffset = (destImage.h * -0.5f + y + 0.5f) * verStep;
+        glm::vec3 yOffset = (destImage.h * -0.5f + y + 0.5f) * ystep;
         
         for (int x = 0; x < destImage.w; ++x)
         {
-          glm::vec3 xOffset = (destImage.w * -0.5f + x + 0.5f) * horStep;
+          glm::vec3 xOffset = (destImage.w * -0.5f + x + 0.5f) * xstep;
           ray.origin = yOffset + xOffset; // this camera's origin is always the world origin
           
           uint32_t drgb;
