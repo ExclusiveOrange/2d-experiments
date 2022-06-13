@@ -261,83 +261,83 @@ namespace
 
 namespace testing
 {
-  class SpriteRenderer : NoCopyNoMove
-  {
-    glm::ivec2 spriteSize;
-    CpuImageWithDepth spriteSphere, spriteQuad;
-  
-  public:
-    SpriteRenderer(
-      const raycasting::OrthogonalCamera &camera,
-      int spriteWidth, int spriteHeight)
-      : spriteSize{spriteWidth, spriteHeight}
-      , spriteSphere{spriteWidth, spriteHeight}
-      , spriteQuad{spriteWidth, spriteHeight}
-    {
-      using namespace raycasting;
-      using namespace raycasting::shapes;
-      
-      const float sphereRadius = 30.f;
-      const float depthRange = 128.f;
-      
-      Sphere sphere{glm::vec3{0.f}, sphereRadius};
-      //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
-      float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.3f;
-      Quad quad{glm::vec3{0.f}, 0.5f * side * glm::normalize(3.f * forward + up), side * glm::normalize(2.f * right + up)};
-      
-      glm::vec3 minLight{0.2f, 0.15f, 0.1f};
-      
-      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
-      
-      camera.render(
-        spriteSphere.getUnsafeView(),
-        sphere,
-        minLight,
-        &directionalLights[0],
-        directionalLights.size());
-      
-      camera.render(
-        spriteQuad.getUnsafeView(),
-        quad,
-        minLight,
-        &directionalLights[0],
-        directionalLights.size());
-    }
-    
-    void render(const ViewOfCpuFrameBuffer &frameBuffer)
-    {
-      frameBuffer.clear(0xff000000, 0x7fff);
-      
-      const glm::ivec2 destCenter{frameBuffer.w / 2, frameBuffer.h / 2};
-      const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
-      const glm::ivec2 steps = 1 + glm::ivec2{frameBuffer.w, frameBuffer.h} / (2 * spacing);
-      
-      for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
-        for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
-        {
-          glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
-          int depthBias = 2 * destPos.y;
-          destPos.x += (pos.y & 1) * spacing.x / 2;
-          
-          drawWithDepth(
-            frameBuffer,
-            destPos.x, destPos.y,
-            spriteSphere.getUnsafeView(),
-            depthBias);
-          
-          drawWithDepth(
-            frameBuffer,
-            destPos.x, destPos.y,
-            spriteQuad.getUnsafeView(),
-            depthBias);
-        }
-    }
-  };
+  //class SpriteRenderer : NoCopyNoMove
+  //{
+  //  glm::ivec2 spriteSize;
+  //  CpuImageWithDepth spriteSphere, spriteQuad;
+  //
+  //public:
+  //  SpriteRenderer(
+  //    const raycasting::OrthogonalCamera &camera,
+  //    int spriteWidth, int spriteHeight)
+  //    : spriteSize{spriteWidth, spriteHeight}
+  //    , spriteSphere{spriteWidth, spriteHeight}
+  //    , spriteQuad{spriteWidth, spriteHeight}
+  //  {
+  //    using namespace raycasting;
+  //    using namespace raycasting::shapes;
+  //
+  //    const float sphereRadius = 30.f;
+  //    const float depthRange = 128.f;
+  //
+  //    Sphere sphere{glm::vec3{0.f}, sphereRadius};
+  //    //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
+  //    float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.3f;
+  //    Quad quad{glm::vec3{0.f}, 0.5f * side * glm::normalize(3.f * forward + up), side * glm::normalize(2.f * right + up)};
+  //
+  //    glm::vec3 minLight{0.2f, 0.15f, 0.1f};
+  //
+  //    std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
+  //
+  //    camera.render(
+  //      spriteSphere.getUnsafeView(),
+  //      sphere,
+  //      minLight,
+  //      &directionalLights[0],
+  //      directionalLights.size());
+  //
+  //    camera.render(
+  //      spriteQuad.getUnsafeView(),
+  //      quad,
+  //      minLight,
+  //      &directionalLights[0],
+  //      directionalLights.size());
+  //  }
+  //
+  //  void render(const ViewOfCpuFrameBuffer &frameBuffer)
+  //  {
+  //    frameBuffer.clear(0xff000000, 0x7fff);
+  //
+  //    const glm::ivec2 destCenter{frameBuffer.w / 2, frameBuffer.h / 2};
+  //    const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
+  //    const glm::ivec2 steps = 1 + glm::ivec2{frameBuffer.w, frameBuffer.h} / (2 * spacing);
+  //
+  //    for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
+  //      for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
+  //      {
+  //        glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
+  //        int depthBias = 2 * destPos.y;
+  //        destPos.x += (pos.y & 1) * spacing.x / 2;
+  //
+  //        drawWithDepth(
+  //          frameBuffer,
+  //          destPos.x, destPos.y,
+  //          spriteSphere.getUnsafeView(),
+  //          depthBias);
+  //
+  //        drawWithDepth(
+  //          frameBuffer,
+  //          destPos.x, destPos.y,
+  //          spriteQuad.getUnsafeView(),
+  //          depthBias);
+  //      }
+  //  }
+  //};
   
   class TileRenderer : NoCopyNoMove
   {
     static constexpr int tileIntervalWorld = 100;
-    static constexpr int tileMarginWorld = 8;
+    static constexpr int tileMarginWorld = 1;
     
     const glm::mat3 screenToWorld;
     const glm::mat3 worldToScreen;
@@ -380,15 +380,24 @@ namespace testing
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
       tile0.emplace(tileImageSize.x, tileImageSize.y);
       
-      const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
-      const Intersectable &intersectable = sphere;
+      std::cout << toString("TileRenderer: tileIntervalWorld(", tileIntervalWorld, "), tileMarginWorld(", tileMarginWorld, "), tileImageSize(", tileImageSize.x, " x ", tileImageSize.y, ")\n");
+      
+      //const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
+      const float halfIntervalPlusMargin = tileIntervalWorld * 0.45f + tileMarginWorld;
+      const Quad quad{glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
+      //const Intersectable &intersectable = quad;
       
       glm::vec3 minLight{0.2f};
-      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(2.f * forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
+      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
       
+      auto intersect = [&](const Ray &ray)
+      {
+        return quad.intersect(ray);
+      };
+  
       camera.render(
         tile0->getUnsafeView(),
-        intersectable,
+        intersect,
         minLight,
         &directionalLights[0],
         directionalLights.size());
@@ -398,7 +407,11 @@ namespace testing
     {
       frameBuffer.clear(0xff000000, 0x7fff);
       
-      int interval = tileIntervalWorld / 3;
+      int interval = tileIntervalWorld;
+      
+      // TODO: figure out how to enumerate all visible tiles and no non-visible tiles,
+      // given that the camera angle hasn't been set in stone yet so the formula should be generalized for now
+      // Probably could use flood-fill where a tile is a candidate if it overlaps the screen.
       
       for (int y = -10; y < 10; ++y)
         for (int x = -10; x < 10; ++x)
@@ -406,9 +419,9 @@ namespace testing
           
           glm::vec3 worldCoords{(float)x * interval, (float)y * interval, 0.f};
           glm::ivec3 screenCoords{worldCoords * worldToScreen};
-
+          
           ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
-
+          
           drawWithDepth(
             frameBuffer,
             frameBuffer.w / 2 + screenCoords.x - tileView.w / 2,
@@ -480,7 +493,7 @@ int main(int argc, char *argv[])
     
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
     
-    constexpr float angleAboveHorizon = 60.f;
+    constexpr float angleAboveHorizon = 30.f;
     constexpr float angleAroundVertical = 30.f;
     
     glm::mat3x3{glm::mat4x4{}};
@@ -499,35 +512,13 @@ int main(int argc, char *argv[])
         << "camera.ystep: " << camera.ystep << "\n";
     }
     
-    // create worldToScreen transform
-    glm::mat3 invCameraRotation = glm::inverse(cameraRotation);
-    // I don't understand exactly why but because of my choice for world and camera coordinates, it is necessary to swap y and z in the worldToScreen transform.
+    // because of my choice for world and camera coordinates, it is necessary to swap y and z in the worldToScreen transform here to get the expected results elsewhere
     glm::mat3 worldToScreen = glm::inverse(cameraRotation);
     std::swap(worldToScreen[1], worldToScreen[2]);
     glm::mat3 screenToWorld = glm::inverse(worldToScreen);
-  
-    // TODO: delete
-    // camera math debugging
-    {
-      // with angleAboveHorizon = 90 and angleAroundVertical = 0:
-      //   x -> x
-      // but y -> z and z -> y
-      
-      std::cout
-        << "world +x on screen: " << (glm::vec3{1.f, 0.f, 0.f} * worldToScreen) << "\n"
-        << "world +y on screen: " << (glm::vec3{0.f, 1.f, 0.f} * worldToScreen) << "\n"
-        << "world +z on screen: " << (glm::vec3{0.f, 0.f, 1.f} * worldToScreen) << "\n";
-      
-      std::cout
-        << "screen +x in world: " << (glm::vec3{1.f, 0.f, 0.f} * screenToWorld) << "\n"
-        << "screen +y in world: " << (glm::vec3{0.f, 1.f, 0.f} * screenToWorld) << "\n"
-        << "screen +z in world: " << (glm::vec3{0.f, 0.f, 1.f} * screenToWorld) << "\n";
-    }
     
-    
-    //testing::SpriteRenderer spriteRenderer{camera, cameraDistance, 128, 128};
     testing::TileRenderer tileRenderer{camera, screenToWorld, worldToScreen};
-
+    
     // render loop
     for (bool quit = false; !quit;)
     {
@@ -537,19 +528,15 @@ int main(int argc, char *argv[])
         if (e.type == SDL_QUIT)
           quit = true;
       }
-
+      
       glm::vec3 screenCenterInWorld{0.f};
-
+      
       auto tstart = clock::now();
-      //frameBuffers.renderWith(testRenderer);
-      //frameBuffers.renderWith(renderSphere);
-      //frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {spriteRenderer.render(frameBuffer);});
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
       auto elapsedmillis = (1.0 / 1000.0) * std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
-      //double elapsedmillis = (double)elapsedmicros / 1000.0;
-
+      
       SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
-
+      
       frameBuffers.present();
     }
     

@@ -4,6 +4,8 @@
 
 #include <glm/glm.hpp>
 
+#include "function_traits.hpp"
+
 namespace raycasting
 {
   constexpr const glm::vec3 right{1.f, 0.f, 0.f};
@@ -66,12 +68,10 @@ namespace raycasting
     // with the value 255 being a special value to indicate transparency.
     void render(
       const ViewOfCpuImageWithDepth &destImage,
-      const Intersectable &intersectable, // should not cull intersections "behind" the camera, instead simply return negative distance
+      Function<std::optional<Intersection>(const Ray &ray)> auto &&intersect,
       const glm::vec3 minLight,
       const DirectionalLight *directionalLights,
       int numDirectionalLights)
-      //float minDepth, // becomes uint8_t 0 (anything less is clamped at 0)
-      //float maxDepth) // becomes uint8_t 254 (anything greater is clamped at 255, the special transparency value)
     const
     {
       Ray ray{.unitDirection = this->normal};
@@ -87,7 +87,7 @@ namespace raycasting
           
           uint32_t drgb;
           
-          if (std::optional<Intersection> i = intersectable.intersect(ray))
+          if (std::optional<Intersection> i = intersect(ray))
           {
             glm::vec3 lightSum{};
             
