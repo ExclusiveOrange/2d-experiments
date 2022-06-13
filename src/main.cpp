@@ -44,7 +44,7 @@ namespace
   {
     constexpr const Uint32 renderFormat = SDL_PIXELFORMAT_ARGB8888;
   }
-  
+
   namespace constants::tile
   {
     constexpr const int width = 32;
@@ -52,57 +52,57 @@ namespace
     constexpr const int centerx = width / 2;
     constexpr const int centery = height / 2;
   }
-  
+
   namespace defaults::render
   {
     constexpr const float scale = 1.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
-  
+
   namespace defaults::window
   {
     constexpr const char *title = "2d-experiments";
     constexpr const int width = 1200;
     constexpr const int height = 900;
   }
-  
+
   namespace defaults::paths
   {
     const std::filesystem::path assets = "assets";
     const std::filesystem::path images = assets / "images";
   }
-  
+
   //======================================================================================================================
   // error transmission
-  
+
   using errmsg = std::optional<std::string>;
-  
-  template< class...Args >
+
+  template<class...Args>
   std::runtime_error
   error(Args &&...args) {return std::runtime_error(toString(std::forward<Args>(args)...));}
-  
+
   //======================================================================================================================
   // performance measurement
-  
+
   using clock = std::chrono::high_resolution_clock;
-  
+
   //======================================================================================================================
   // structs
-  
+
   struct Images : NoCopyNoMove
   {
     static constexpr const char *test1File = "2-1 terrain tile 1.png";
     SDL_Surface *test1{};
-    
+
     ~Images()
     {
       SDL_FreeSurface(test1);
     }
   };
-  
+
   //======================================================================================================================
   // misc functions
-  
+
   void
   setPlatformSpecificSdlHints()
   {
@@ -110,10 +110,10 @@ namespace
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl"); // SDL tries to use Metal by default but it is catastrophically slow
 #endif
   }
-  
+
   //======================================================================================================================
   // another attempt to get the right safety behavior I want before I get too far into this project
-  
+
   struct Sdl : NoCopyNoMove
   {
     Sdl()
@@ -121,19 +121,19 @@ namespace
       if (SDL_Init(SDL_INIT_VIDEO) < 0)
         throw error("SDL_Init failed! SDL_Error: ", SDL_GetError());
     }
-    
+
     ~Sdl() {SDL_Quit();}
   };
-  
+
   struct SdlWindow : NoCopyNoMove
   {
     // TODO: figure out how to deal with Apple retina resolution,
     // where the SDL_CreateWindow actually takes width, height in points, not pixels,
     // so the size of everything is wrong.
-    
+
     // do not pass a temporary Sdl
     SdlWindow(Sdl &&, int w, int h) = delete;
-    
+
     SdlWindow(const Sdl &, int w, int h)
       : window{
       SDL_CreateWindow(
@@ -146,17 +146,17 @@ namespace
       if (window == nullptr)
         throw error("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
     }
-    
+
     SDL_Window *const window;
-    
+
     ~SdlWindow() {SDL_DestroyWindow(window);}
   };
-  
+
   struct SdlRenderer : NoCopyNoMove
   {
     // do not pass a temporary SdlWindow
     SdlRenderer(SdlWindow &&) = delete;
-    
+
     SdlRenderer(const SdlWindow &window)
       : window{window}
       , renderer{SDL_CreateRenderer(window.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)}
@@ -164,19 +164,19 @@ namespace
       if (renderer == nullptr)
         throw error("SDL_CreateRenderer failed: ", SDL_GetError());
     }
-    
+
     const SdlWindow &window;
     SDL_Renderer *const renderer;
-    
+
     ~SdlRenderer() {SDL_DestroyRenderer(renderer);}
   };
-  
+
   // note: use std::optional to contain this if you want a replaceable object, then use std::optional.emplace(...)
   struct RenderBufferTexture : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
     RenderBufferTexture(SdlRenderer &&, int w, int h) = delete;
-    
+
     RenderBufferTexture(const SdlRenderer &renderer, int w, int h)
       : renderer{renderer}
       , texture{SDL_CreateTexture(renderer.renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, w, h)}
@@ -184,18 +184,18 @@ namespace
       if (texture == nullptr)
         throw error("SDL_CreateTexture failed: ", SDL_GetError());
     }
-    
+
     const SdlRenderer &renderer;
     SDL_Texture *const texture;
-    
+
     ~RenderBufferTexture() {SDL_DestroyTexture(texture);}
   };
-  
+
   struct FrameBuffers : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
     FrameBuffers(SdlRenderer &&, int) = delete;
-    
+
     // bigger scale -> fewer pixels and they are bigger
     FrameBuffers(const SdlRenderer &renderer, float scale, bool flipVertical = true)
       : renderer{renderer}
@@ -205,7 +205,7 @@ namespace
       if (scale <= 0.f)
         throw error("FrameBuffers constructor failed: invalid scale parameter (", scale, ") but must be > 0");
     }
-    
+
     void renderWith(Function<void(const ViewOfCpuFrameBuffer &)> auto &&cpuRenderer)
     {
       allocateBuffersIfNecessary();
@@ -214,40 +214,40 @@ namespace
         [&](const ViewOfCpuFrameBuffer &imageWithDepth)
         {
           int imagePitch = imageWithDepth.w * sizeof(imageWithDepth.image[0]);
-          
+
           if (SDL_UpdateTexture(renderBufferTexture->texture, nullptr, imageWithDepth.image, imagePitch))
             throw error("SDL_UpdateTexture failed: ", SDL_GetError());
-          
+
           if (SDL_RenderCopyEx(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr, 0.0, nullptr, flip))
             throw error("SDL_RenderCopyEx failed: ", SDL_GetError());
         });
     }
-    
+
     void present() {SDL_RenderPresent(renderer.renderer);}
-  
+
   private:
     const SdlRenderer &renderer;
     const float scale;
     const SDL_RendererFlip flip;
-    
+
     int scaledWidth{-1}, scaledHeight{-1};
     int lastRendererWidth{-1}, lastRendererHeight{-1};
     std::optional<RenderBufferTexture> renderBufferTexture;
     std::optional<CpuFrameBuffer> cpuFrameBuffer;
-    
+
     void allocateBuffers()
     {
       renderBufferTexture.emplace(renderer, scaledWidth, scaledHeight);
       cpuFrameBuffer.emplace(scaledWidth, scaledHeight);
     }
-    
+
     void allocateBuffersIfNecessary()
     {
       int rendererWidth, rendererHeight;
-      
+
       if (0 != SDL_GetRendererOutputSize(renderer.renderer, &rendererWidth, &rendererHeight))
         throw error("SDL_GetRendererOutputSize failed: ", SDL_GetError());
-      
+
       if (lastRendererWidth != rendererWidth || lastRendererHeight != rendererHeight)
       {
         (lastRendererWidth = rendererWidth, lastRendererHeight = rendererHeight);
@@ -368,15 +368,15 @@ int main(int argc, char *argv[])
   try
   {
     Sdl sdl;
-    
+
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, defaults::render::scaleQuality);
-    
+
     setPlatformSpecificSdlHints();
-    
+
     SdlWindow window{sdl, defaults::window::width, defaults::window::height};
     SdlRenderer renderer{window};
     FrameBuffers frameBuffers{renderer, defaults::render::scale};
-    
+
     //----------------------------------------------------------------------------------------------------------------------
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //auto testRenderer =
@@ -389,10 +389,10 @@ int main(int argc, char *argv[])
     //        imageWithDepth.image[y * imageWithDepth.w + x] = p;
     //      }
     //  };
-    
+
     // TEMPORARY: prepare test sprite / tile
     raycasting::OrthogonalCamera camera{};
-    
+
     // ANGLES
     // if the desired w:h ratio is 2:1 then angle above horizon should be 30 deg
     // formula:
@@ -404,13 +404,13 @@ int main(int argc, char *argv[])
     //   3 2 41.8103149
     //   4 3 48.5903779
     //   5 4 53.1301024
-    
+
     constexpr auto angleInDegreesFromWidthToHeightRatio = [](int w, int h)
     {
       const float ratio = (float)w / h;
       return 90.f - glm::degrees(glm::atan(glm::sqrt(ratio * ratio - 1.f)));
     };
-    
+
     // ratio experiments
     //{
     //  struct Ratio {int w, h;};
@@ -418,19 +418,19 @@ int main(int argc, char *argv[])
     //  for (Ratio &ratio: ratios)
     //    std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     //}
-    
+
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-    
+
     constexpr float angleAboveHorizon = 30.f;
     constexpr float angleAroundVertical = 30.f;
-    
+
     glm::mat3x3{glm::mat4x4{}};
-    
+
     glm::mat3 cameraRotation = glm::mat3(glm::rotate(glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right), glm::radians(angleAroundVertical), raycasting::up));
     camera.normal = raycasting::forward * cameraRotation; // at angle 0 the camera forward (+z) is world forward
     camera.xstep = raycasting::right * cameraRotation; // at angle 0 the camera +x is world right
     camera.ystep = raycasting::up * cameraRotation; // at angle 0 the camera +y is world up
-    
+
     // TODO: delete
     // camera math debugging
     {
@@ -439,21 +439,16 @@ int main(int argc, char *argv[])
         << "camera.xstep: " << camera.xstep << "\n"
         << "camera.ystep: " << camera.ystep << "\n";
     }
-    
+
     // because of my choice for world and camera coordinates, it is necessary to swap y and z in the worldToScreen transform here to get the expected results elsewhere
     glm::mat3 worldToScreen = glm::inverse(cameraRotation);
     std::swap(worldToScreen[1], worldToScreen[2]);
     glm::mat3 screenToWorld = glm::inverse(worldToScreen);
 
-    // TODO: delete
-    // testing movement vectors
-    {
-      MovementVectors movementVectors{screenToWorld};
-
-      std::cout << "movement vectors:\n" << movementVectors << std::endl;
-    }
-    
     testing::TileRenderer tileRenderer{camera, screenToWorld, worldToScreen};
+    const MovementVectors movementVectors{screenToWorld};
+
+    glm::vec3 worldPosition{0.f};
 
     // render loop
     for (bool quit = false; !quit;)
@@ -461,31 +456,45 @@ int main(int argc, char *argv[])
       // handle SDL events
       for (SDL_Event e; 0 != SDL_PollEvent(&e);)
       {
-        if (e.type == SDL_QUIT)
+        switch (e.type)
+        {
+        case SDL_QUIT:
           quit = true;
+          break;
+          // TODO: keep track of which relevant keys are pressed
+        case SDL_KEYDOWN:
+          if (!e.key.repeat)
+            std::cout << "keydown" << std::endl;
+          break;
+        case SDL_KEYUP:
+          std::cout << "keyup" << std::endl;
+          break;
+        }
       }
-      
+
+      // TODO: adjust worldPosition based on which movement keys are pressed down
+
       glm::vec3 screenCenterInWorld{0.f};
-      
+
       auto tstart = clock::now();
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
       auto elapsedmillis = (1.0 / 1000.0) * std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
-      
+
       SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
-      
+
       frameBuffers.present();
     }
-    
+
     //    SDL_Delay(3000);
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //----------------------------------------------------------------------------------------------------------------------
-    
+
     // TODO: render loop: check for events, render to frame buffer, present frame buffer, etc.
   }
   catch (const std::exception &e)
   {
     std::cerr << "caught exception in main: " << e.what() << std::endl;
   }
-  
+
   return 0;
 }
