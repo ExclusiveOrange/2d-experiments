@@ -37,6 +37,7 @@
 #include "glmprint.hpp"
 #include "NoCopyNoMove.hpp"
 #include "toString.hpp"
+#include "CpuSparseImageWithDepth.hpp"
 
 namespace
 {
@@ -264,7 +265,7 @@ namespace testing
 {
   class TileRenderer : NoCopyNoMove
   {
-    static constexpr int tileIntervalWorld = 100;
+    static constexpr int tileIntervalWorld = 10;
     static constexpr int tileMarginWorld = 1;
 
     const glm::mat3 screenToWorld;
@@ -329,6 +330,32 @@ namespace testing
         minLight,
         &directionalLights[0],
         directionalLights.size());
+
+      // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
+      // delete this
+      {
+        using namespace std;
+        CpuSparseImageWithDepth sparse{tile0->getUnsafeView()};
+        ViewOfCpuSparseImageWithDepth view{sparse.getUnsafeView()};
+
+        cout
+          << "sparse test results:\n"
+          << "width: " << view.w << ", height: " << view.h << endl;
+
+        for (int y = view.h - 1; y >= 0; --y)
+        {
+          cout << "row " << dec << y << endl;
+          cout << hex;
+          for (int x = 0; x < view.w; ++x)
+            cout << setw(4) << (int)(view.drgb[y * view.w + x] >> 24);
+          cout << endl;
+          cout << dec;
+          for (int x = 0; x < view.w; ++x)
+            cout  << setw(4) << (int)view.colGapsRight[y * view.w + x];
+          cout << endl;
+        }
+
+      }
     }
 
     void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::ivec3 screenCenterInWorld)
