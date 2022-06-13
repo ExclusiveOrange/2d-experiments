@@ -22,6 +22,8 @@ set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems
 
 project(2d-experiments CXX)
 
+# TODO: make sure SSE / AVX are enabled on appropriate platforms
+
 # enable full optimization
 if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast")
