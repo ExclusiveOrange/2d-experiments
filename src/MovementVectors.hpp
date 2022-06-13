@@ -10,7 +10,7 @@ struct MovementVectors
 {
   const glm::vec3
     right, left, up, down,
-    upright, upleft, downright, downleft;
+    upright, downleft, upleft, downright;
 
   MovementVectors(glm::mat3 screenToWorld)
     : right{normalizedxy(glm::vec3{1.f, 0.f, 0.f} * screenToWorld)}
