@@ -7,13 +7,6 @@
 
 namespace raycasting::shapes
 {
-  // TODO: make some kind of glm helper header with this in it
-  std::ostream &operator<<(std::ostream &os, const glm::vec3 v)
-  {
-    os << "<" << v.x << ", " << v.y << ", " << v.z << ">";
-    return os;
-  }
-
   struct QuadUp : Intersectable
   {
     QuadUp(glm::vec3 center, float radius)

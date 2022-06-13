@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <functional>
 #include <future>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <utility>
@@ -335,61 +336,86 @@ namespace testing
 
   class TileRenderer : NoCopyNoMove
   {
-    //static constexpr glm::ivec2 tileworldsize;
-    const glm::ivec2 tileSizeWorld;
-    const glm::ivec2 tileSizeScreen;
-    const glm::imat2x2 tileSpacingScreen;
+    static constexpr int tileIntervalWorld = 100;
+    static constexpr int tileMarginWorld = 8;
 
-    const CpuImageWithDepth tile0;
+    const glm::mat3 screenToWorld;
+    const glm::mat3 worldToScreen;
+
+    std::optional<CpuImageWithDepth> tile0;
+
+    static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
+    {
+      glm::vec3 tileMaxWorld{tileIntervalWorld * 0.5f + tileMarginWorld};
+      glm::vec3 tileMinWorld{-tileMaxWorld};
+
+      // only need to measure one extreme since the other will be the negation of that
+      glm::vec3 screenMax{std::numeric_limits<float>::min()};
+
+      for (int i = 0; i < 8; ++i)
+      {
+        glm::vec3 world{i & 1 ? tileMaxWorld.x : tileMinWorld.x,
+                        i & 2 ? tileMaxWorld.y : tileMinWorld.y,
+                        i & 4 ? tileMaxWorld.z : tileMinWorld.z};
+        glm::vec3 screen = world * worldToScreen;
+        screenMax = glm::max(screen, screenMax);
+      }
+
+      return 2 * glm::ivec2(glm::ceil(glm::vec2(screenMax)));
+    }
 
   public:
     TileRenderer(
       const raycasting::OrthogonalCamera &camera,
-      glm::ivec2 tileSizeWorld,
-      glm::ivec2 tileSizeScreen,
-      glm::imat2x2 tileSpacingScreen // to go from tile(x,y) to tile(x+1,y) add glm::ivec2(1,0) * tileSpacing
-      )
-      : tileSizeWorld{tileSizeWorld}
-      , tileSizeScreen{tileSizeScreen}
-      , tileSpacingScreen{tileSpacingScreen}
-      , tile0{tileSizeScreen.x, tileSizeScreen.y}
+      glm::mat3 screenToWorld,
+      glm::mat3 worldToScreen)
+      : screenToWorld{screenToWorld}
+      , worldToScreen{worldToScreen}
+      , tile0{}
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
 
       // generate tile image
+      glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
+      tile0.emplace(tileImageSize.x, tileImageSize.y);
 
-      const Sphere sphere{glm::vec3{0.f}, tileSizeWorld.x * 0.45f};
+      const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
       const Intersectable &intersectable = sphere;
 
       glm::vec3 minLight{0.2f};
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward), glm::vec3{1.f, 1.f, 1.f}}};
 
       camera.render(
-        tile0.getUnsafeView(),
+        tile0->getUnsafeView(),
         intersectable,
         minLight,
         &directionalLights[0],
         directionalLights.size());
     }
 
-    void render(
-      const ViewOfCpuFrameBuffer &frameBuffer,
-      glm::ivec2 screenCenterInWorld)
+    void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::ivec3 screenCenterInWorld)
     {
       frameBuffer.clear(0xff000000, 0x7fff);
 
-      glm::ivec2 frameBufferSize{frameBuffer.w, frameBuffer.h};
-      glm::ivec2 destpos = frameBufferSize / 2 - tileSizeScreen / 2;
+      //glm::ivec2 frameBufferSize{frameBuffer.w, frameBuffer.h};
+      //glm::ivec2 destpos = frameBufferSize / 2 - tileSizeScreen / 2;
 
-      for (int x = -3; x < 3; ++x)
-      {
-        drawWithDepth(
-          frameBuffer,
-          destpos.x + x * 21, destpos.y,
-          tile0.getUnsafeView(),
-          x * -5);
-      }
+      for (int y = -3; y < 3; ++y)
+        for (int x = -3; x < 3; ++x)
+        {
+          glm::vec3 worldCoords{(float)x * tileIntervalWorld, (float)y * tileIntervalWorld, 0.f};
+          glm::ivec3 screenCoords{worldCoords * worldToScreen};
+
+          ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
+
+          drawWithDepth(
+            frameBuffer,
+            frameBuffer.w / 2 + screenCoords.x - tileView.w / 2,
+            frameBuffer.h / 2 + screenCoords.y - tileView.h / 2,
+            tileView,
+            screenCoords.z);
+        }
     }
   };
 }
@@ -425,7 +451,7 @@ int main(int argc, char *argv[])
 
     // TEMPORARY: prepare test sprite / tile
     constexpr const int spriteWidth = 128, spriteHeight = 128;
-    raycasting::OrthogonalCamera camera{.w = (float)spriteWidth * raycasting::right};
+    raycasting::OrthogonalCamera camera{};
 
     // ANGLES
     // if the desired w:h ratio is 2:1 then angle above horizon should be 30 deg
@@ -454,22 +480,39 @@ int main(int argc, char *argv[])
       std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     }
 
-    constexpr float angleAboveHorizon = 30.f;
+    constexpr float angleAboveHorizon = 60.f;
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-    constexpr float angleAroundVertical = 45.f;
+    constexpr float angleAroundVertical = 30.f;
+
+    glm::mat3x3{glm::mat4x4{}};
 
     const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right)};
     const glm::mat4 rotAboveHorizonThenAroundVertical{glm::rotate(rotAboveHorizon, glm::radians(angleAroundVertical), raycasting::up)};
 
-    auto mul = [](glm::vec3 v, glm::mat4 m)
+    auto transform = [](glm::vec3 v, glm::mat4 m)
     {
       return glm::vec3(glm::vec4(v, 1.f) * m);
     };
 
+    glm::mat3 screenToWorld{rotAboveHorizonThenAroundVertical};
+    glm::mat3 worldToScreen{glm::inverse(screenToWorld)};
+
+    // TODO: delete
+    // testing screenToWorld, worldToScreen transforms
+    {
+      glm::vec3 world0{0.f};
+      glm::vec3 world1{100.f,0.f, 0.f};
+      glm::vec3 screen0{world0 * worldToScreen};
+      glm::vec3 screen1{world1 * worldToScreen};
+
+      std::cout << "world0: " << world0 << ", screen0: " << screen0 << std::endl;
+      std::cout << "world1: " << world1 << ", screen1: " << screen1 << std::endl;
+    }
+
     //camera.position = mul(raycasting::backward * cameraDistance, rotAboveHorizonThenAroundVertical);
-    camera.normal = glm::normalize(mul(raycasting::forward, rotAboveHorizonThenAroundVertical));
-    camera.w = (float)spriteWidth * mul(raycasting::right, rotAboveHorizonThenAroundVertical);
-    camera.h = (float)spriteHeight * mul(raycasting::up, rotAboveHorizonThenAroundVertical);
+    camera.normal = glm::normalize(transform(raycasting::forward, rotAboveHorizonThenAroundVertical));
+    camera.w = (float)spriteWidth * transform(raycasting::right, rotAboveHorizonThenAroundVertical);
+    camera.h = (float)spriteHeight * transform(raycasting::up, rotAboveHorizonThenAroundVertical);
 
     // TODO: delete
     // camera math debugging
@@ -483,12 +526,7 @@ int main(int argc, char *argv[])
     }
 
     //testing::SpriteRenderer spriteRenderer{camera, cameraDistance, 128, 128};
-    glm::imat2x2 tileSpacingScreen;
-    testing::TileRenderer tileRenderer{
-      camera,
-      glm::ivec2{64, 64},
-      glm::ivec2{128, 128},
-      tileSpacingScreen};
+    testing::TileRenderer tileRenderer{camera, screenToWorld, worldToScreen};
 
     // render loop
     for (bool quit = false; !quit;)
@@ -500,13 +538,13 @@ int main(int argc, char *argv[])
           quit = true;
       }
 
-      glm::ivec2 screenCenterInWorld{0,0};
+      glm::vec3 screenCenterInWorld{0.f};
 
       auto tstart = clock::now();
       //frameBuffers.renderWith(testRenderer);
       //frameBuffers.renderWith(renderSphere);
       //frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {spriteRenderer.render(frameBuffer);});
-      frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer,screenCenterInWorld);});
+      frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
       auto elapsedmillis = (1.0 / 1000.0) * std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
       //double elapsedmillis = (double)elapsedmicros / 1000.0;
 
