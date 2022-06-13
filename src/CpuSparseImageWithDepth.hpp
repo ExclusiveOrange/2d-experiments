@@ -56,47 +56,8 @@ struct CpuSparseImageWithDepth
       .w = w, .h = h}
   {
     memcpy(drgb.get(), imageWithDepth.drgb, w * h * sizeof(uint32_t));
-
-    // measure gaps from bottom-left to top-right, setting view.colGapsRight and view.rowGapsUp
-    {
-      int lastUnsetY = 0;
-
-      for (int y = 0; y < h; ++y)
-      {
-        int lastUnsetX = 0;
-        bool rowTransparent = true;
-
-        for (int x = 0; x < w; ++x)
-          if (view.drgb[y * w + x] < 0xff000000) // not transparent
-          {
-            rowTransparent = false;
-
-            for (int dx = x - lastUnsetX; dx > 0; --dx)
-              view.colGapsRight[y * w + x - dx] = (uint8_t)std::min(dx, 255);
-
-            view.colGapsRight[y * w + x] = 0;
-            lastUnsetX = x + 1;
-          }
-
-        for (int x = lastUnsetX; x < w; ++x)
-          view.colGapsRight[y * w + x] = 255;
-
-        if (!rowTransparent)
-        {
-          for (int dy = y - lastUnsetY; dy > 0; --dy)
-            view.rowGapsUp[y - dy] = (uint8_t)std::min(dy, 255);
-
-          view.rowGapsUp[y] = 0;
-          lastUnsetY = y + 1;
-        }
-      }
-
-      for (int y = lastUnsetY; y < h; ++y)
-        view.rowGapsUp[y] = 255;
-    }
-
-    // measure gaps from top-right to bottom-left
-    // TODO
+    encodeGapsBottomLeftToTopRight(view);
+    encodeGapsTopRightToBottomLeft(view);
   }
 
   ViewOfCpuSparseImageWithDepth
@@ -107,4 +68,80 @@ private:
   const std::unique_ptr<uint32_t[]> drgb;
   const std::unique_ptr<uint8_t[]> gaps; // rowGapsDown[h], rowGapsUp[h], rowGapsRight[w*h], rowGapsLeft[w*h]
   const ViewOfCpuSparseImageWithDepth view;
+
+  static void encodeGapsBottomLeftToTopRight(const ViewOfCpuSparseImageWithDepth view)
+  {
+    int lastUnsetY = 0;
+
+    for (int y = 0; y < view.h; ++y)
+    {
+      int lastUnsetX = 0;
+      bool rowTransparent = true;
+
+      for (int x = 0; x < view.w; ++x)
+        if (view.drgb[y * view.w + x] < 0xff000000) // not transparent
+        {
+          rowTransparent = false;
+
+          for (int dx = x - lastUnsetX; dx > 0; --dx)
+            view.colGapsRight[y * view.w + x - dx] = (uint8_t)std::min(dx, 255);
+
+          view.colGapsRight[y * view.w + x] = 0;
+          lastUnsetX = x + 1;
+        }
+
+      for (int x = lastUnsetX; x < view.w; ++x)
+        view.colGapsRight[y * view.w + x] = 255;
+
+      if (!rowTransparent)
+      {
+        for (int dy = y - lastUnsetY; dy > 0; --dy)
+          view.rowGapsUp[y - dy] = (uint8_t)std::min(dy, 255);
+
+        view.rowGapsUp[y] = 0;
+        lastUnsetY = y + 1;
+      }
+    }
+
+    for (int y = lastUnsetY; y < view.h; ++y)
+      view.rowGapsUp[y] = 255;
+  }
+
+  static void encodeGapsTopRightToBottomLeft(const ViewOfCpuSparseImageWithDepth view)
+  {
+    int lastUnsetY = view.h - 1;
+
+    for (int y = view.h - 1; y >= 0; --y)
+    {
+      int lastUnsetX = view.w - 1;
+      bool rowTransparent = true;
+
+      for (int x = view.w - 1; x >= 0; --x)
+        if (view.drgb[y * view.w + x] < 0xff000000) // not transparent
+        {
+          rowTransparent = false;
+
+          for (int dx = lastUnsetX - x; dx > 0; --dx)
+            view.colGapsLeft[y * view.w + x + dx] = (uint8_t)std::min(dx, 255);
+
+          view.colGapsLeft[y * view.w + x] = 0;
+          lastUnsetX = x - 1;
+        }
+
+      for (int x = lastUnsetX; x >= 0; --x)
+        view.colGapsLeft[y * view.w + x] = 255;
+
+      if (!rowTransparent)
+      {
+        for (int dy = lastUnsetY - y; dy > 0; --dy)
+          view.rowGapsDown[y + dy] = (uint8_t)std::min(dy, 255);
+
+        view.rowGapsDown[y] = 0;
+        lastUnsetY = y - 1;
+      }
+    }
+
+    for (int y = lastUnsetY; y >= 0; --y)
+      view.rowGapsDown[y] = 255;
+  }
 };
