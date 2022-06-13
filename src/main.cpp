@@ -344,7 +344,7 @@ namespace testing
 
         for (int y = view.h - 1; y >= 0; --y)
         {
-          cout << "row " << dec << y << endl;
+          cout << "row " << dec << y << ", rowGapsUp: " << (int)view.rowGapsUp[y] << endl;
           cout << hex;
           for (int x = 0; x < view.w; ++x)
             cout << setw(4) << (int)(view.drgb[y * view.w + x] >> 24);

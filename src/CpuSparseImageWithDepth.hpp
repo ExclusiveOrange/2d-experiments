@@ -57,19 +57,19 @@ struct CpuSparseImageWithDepth
   {
     memcpy(drgb.get(), imageWithDepth.drgb, w * h * sizeof(uint32_t));
 
-    // measure gaps from bottom-left to top-right
+    // measure gaps from bottom-left to top-right, setting view.colGapsRight and view.rowGapsUp
     {
       int lastUnsetY = 0;
 
       for (int y = 0; y < h; ++y)
       {
         int lastUnsetX = 0;
-        bool hasNonTransparent = false;
+        bool rowTransparent = true;
 
         for (int x = 0; x < w; ++x)
           if (view.drgb[y * w + x] < 0xff000000) // not transparent
           {
-            hasNonTransparent = true;
+            rowTransparent = false;
 
             for (int dx = x - lastUnsetX; dx > 0; --dx)
               view.colGapsRight[y * w + x - dx] = (uint8_t)std::min(dx, 255);
@@ -81,9 +81,18 @@ struct CpuSparseImageWithDepth
         for (int x = lastUnsetX; x < w; ++x)
           view.colGapsRight[y * w + x] = 255;
 
-        //if (hasNonTransparent)
-        //  ; // TODO
+        if (!rowTransparent)
+        {
+          for (int dy = y - lastUnsetY; dy > 0; --dy)
+            view.rowGapsUp[y - dy] = (uint8_t)std::min(dy, 255);
+
+          view.rowGapsUp[y] = 0;
+          lastUnsetY = y + 1;
+        }
       }
+
+      for (int y = lastUnsetY; y < h; ++y)
+        view.rowGapsUp[y] = 255;
     }
 
     // measure gaps from top-right to bottom-left
