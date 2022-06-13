@@ -43,7 +43,7 @@ namespace
   {
     constexpr const Uint32 renderFormat = SDL_PIXELFORMAT_ARGB8888;
   }
-
+  
   namespace constants::tile
   {
     constexpr const int width = 32;
@@ -51,57 +51,57 @@ namespace
     constexpr const int centerx = width / 2;
     constexpr const int centery = height / 2;
   }
-
+  
   namespace defaults::render
   {
-    constexpr const float scale = 2.f;
+    constexpr const float scale = 1.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
-
+  
   namespace defaults::window
   {
     constexpr const char *title = "2d-experiments";
     constexpr const int width = 1200;
     constexpr const int height = 900;
   }
-
+  
   namespace defaults::paths
   {
     const std::filesystem::path assets = "assets";
     const std::filesystem::path images = assets / "images";
   }
-
+  
   //======================================================================================================================
   // error transmission
-
+  
   using errmsg = std::optional<std::string>;
-
-  template<class...Args>
+  
+  template< class...Args >
   std::runtime_error
   error(Args &&...args) {return std::runtime_error(toString(std::forward<Args>(args)...));}
-
+  
   //======================================================================================================================
   // performance measurement
-
+  
   using clock = std::chrono::high_resolution_clock;
-
+  
   //======================================================================================================================
   // structs
-
+  
   struct Images : NoCopyNoMove
   {
     static constexpr const char *test1File = "2-1 terrain tile 1.png";
     SDL_Surface *test1{};
-
+    
     ~Images()
     {
       SDL_FreeSurface(test1);
     }
   };
-
+  
   //======================================================================================================================
   // misc functions
-
+  
   void
   setPlatformSpecificSdlHints()
   {
@@ -109,10 +109,10 @@ namespace
     SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl"); // SDL tries to use Metal by default but it is catastrophically slow
 #endif
   }
-
+  
   //======================================================================================================================
   // another attempt to get the right safety behavior I want before I get too far into this project
-
+  
   struct Sdl : NoCopyNoMove
   {
     Sdl()
@@ -120,19 +120,19 @@ namespace
       if (SDL_Init(SDL_INIT_VIDEO) < 0)
         throw error("SDL_Init failed! SDL_Error: ", SDL_GetError());
     }
-
+    
     ~Sdl() {SDL_Quit();}
   };
-
+  
   struct SdlWindow : NoCopyNoMove
   {
     // TODO: figure out how to deal with Apple retina resolution,
     // where the SDL_CreateWindow actually takes width, height in points, not pixels,
     // so the size of everything is wrong.
-
+    
     // do not pass a temporary Sdl
     SdlWindow(Sdl &&, int w, int h) = delete;
-
+    
     SdlWindow(const Sdl &, int w, int h)
       : window{
       SDL_CreateWindow(
@@ -145,17 +145,17 @@ namespace
       if (window == nullptr)
         throw error("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
     }
-
+    
     SDL_Window *const window;
-
+    
     ~SdlWindow() {SDL_DestroyWindow(window);}
   };
-
+  
   struct SdlRenderer : NoCopyNoMove
   {
     // do not pass a temporary SdlWindow
     SdlRenderer(SdlWindow &&) = delete;
-
+    
     SdlRenderer(const SdlWindow &window)
       : window{window}
       , renderer{SDL_CreateRenderer(window.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)}
@@ -163,19 +163,19 @@ namespace
       if (renderer == nullptr)
         throw error("SDL_CreateRenderer failed: ", SDL_GetError());
     }
-
+    
     const SdlWindow &window;
     SDL_Renderer *const renderer;
-
+    
     ~SdlRenderer() {SDL_DestroyRenderer(renderer);}
   };
-
+  
   // note: use std::optional to contain this if you want a replaceable object, then use std::optional.emplace(...)
   struct RenderBufferTexture : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
     RenderBufferTexture(SdlRenderer &&, int w, int h) = delete;
-
+    
     RenderBufferTexture(const SdlRenderer &renderer, int w, int h)
       : renderer{renderer}
       , texture{SDL_CreateTexture(renderer.renderer, constants::sdl::renderFormat, SDL_TEXTUREACCESS_STREAMING, w, h)}
@@ -183,18 +183,18 @@ namespace
       if (texture == nullptr)
         throw error("SDL_CreateTexture failed: ", SDL_GetError());
     }
-
+    
     const SdlRenderer &renderer;
     SDL_Texture *const texture;
-
+    
     ~RenderBufferTexture() {SDL_DestroyTexture(texture);}
   };
-
+  
   struct FrameBuffers : NoCopyNoMove
   {
     // do not pass a temporary SdlRenderer
     FrameBuffers(SdlRenderer &&, int) = delete;
-
+    
     // bigger scale -> fewer pixels and they are bigger
     FrameBuffers(const SdlRenderer &renderer, float scale, bool flipVertical = true)
       : renderer{renderer}
@@ -204,7 +204,7 @@ namespace
       if (scale <= 0.f)
         throw error("FrameBuffers constructor failed: invalid scale parameter (", scale, ") but must be > 0");
     }
-
+    
     void renderWith(Function<void(const ViewOfCpuFrameBuffer &)> auto &&cpuRenderer)
     {
       allocateBuffersIfNecessary();
@@ -213,40 +213,40 @@ namespace
         [&](const ViewOfCpuFrameBuffer &imageWithDepth)
         {
           int imagePitch = imageWithDepth.w * sizeof(imageWithDepth.image[0]);
-
+          
           if (SDL_UpdateTexture(renderBufferTexture->texture, nullptr, imageWithDepth.image, imagePitch))
             throw error("SDL_UpdateTexture failed: ", SDL_GetError());
-
+          
           if (SDL_RenderCopyEx(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr, 0.0, nullptr, flip))
             throw error("SDL_RenderCopyEx failed: ", SDL_GetError());
         });
     }
-
+    
     void present() {SDL_RenderPresent(renderer.renderer);}
-
+  
   private:
     const SdlRenderer &renderer;
     const float scale;
     const SDL_RendererFlip flip;
-
+    
     int scaledWidth{-1}, scaledHeight{-1};
     int lastRendererWidth{-1}, lastRendererHeight{-1};
     std::optional<RenderBufferTexture> renderBufferTexture;
     std::optional<CpuFrameBuffer> cpuFrameBuffer;
-
+    
     void allocateBuffers()
     {
       renderBufferTexture.emplace(renderer, scaledWidth, scaledHeight);
       cpuFrameBuffer.emplace(scaledWidth, scaledHeight);
     }
-
+    
     void allocateBuffersIfNecessary()
     {
       int rendererWidth, rendererHeight;
-
+      
       if (0 != SDL_GetRendererOutputSize(renderer.renderer, &rendererWidth, &rendererHeight))
         throw error("SDL_GetRendererOutputSize failed: ", SDL_GetError());
-
+      
       if (lastRendererWidth != rendererWidth || lastRendererHeight != rendererHeight)
       {
         (lastRendererWidth = rendererWidth, lastRendererHeight = rendererHeight);
@@ -265,7 +265,7 @@ namespace testing
   {
     glm::ivec2 spriteSize;
     CpuImageWithDepth spriteSphere, spriteQuad;
-
+  
   public:
     SpriteRenderer(
       const raycasting::OrthogonalCamera &camera,
@@ -276,26 +276,26 @@ namespace testing
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
-
+      
       const float sphereRadius = 30.f;
       const float depthRange = 128.f;
-
+      
       Sphere sphere{glm::vec3{0.f}, sphereRadius};
       //QuadUp quad{glm::vec3{0.f}, glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.25f};
       float side = glm::sqrt(2.f * spriteWidth * spriteWidth) * 0.3f;
       Quad quad{glm::vec3{0.f}, 0.5f * side * glm::normalize(3.f * forward + up), side * glm::normalize(2.f * right + up)};
-
+      
       glm::vec3 minLight{0.2f, 0.15f, 0.1f};
-
+      
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 1.5f * down), glm::vec3{1.f, 1.f, 1.f}}};
-
+      
       camera.render(
         spriteSphere.getUnsafeView(),
         sphere,
         minLight,
         &directionalLights[0],
         directionalLights.size());
-
+      
       camera.render(
         spriteQuad.getUnsafeView(),
         quad,
@@ -303,28 +303,28 @@ namespace testing
         &directionalLights[0],
         directionalLights.size());
     }
-
+    
     void render(const ViewOfCpuFrameBuffer &frameBuffer)
     {
       frameBuffer.clear(0xff000000, 0x7fff);
-
+      
       const glm::ivec2 destCenter{frameBuffer.w / 2, frameBuffer.h / 2};
       const glm::ivec2 spacing{spriteSize.x, spriteSize.y / 2};
       const glm::ivec2 steps = 1 + glm::ivec2{frameBuffer.w, frameBuffer.h} / (2 * spacing);
-
+      
       for (glm::ivec2 pos{-steps}; pos.y <= steps.y; ++pos.y)
         for (pos.x = -steps.x; pos.x <= steps.x; ++pos.x)
         {
           glm::ivec2 destPos = destCenter - spriteSize / 2 + pos * spacing;
           int depthBias = 2 * destPos.y;
           destPos.x += (pos.y & 1) * spacing.x / 2;
-
+          
           drawWithDepth(
             frameBuffer,
             destPos.x, destPos.y,
             spriteSphere.getUnsafeView(),
             depthBias);
-
+          
           drawWithDepth(
             frameBuffer,
             destPos.x, destPos.y,
@@ -333,25 +333,25 @@ namespace testing
         }
     }
   };
-
+  
   class TileRenderer : NoCopyNoMove
   {
     static constexpr int tileIntervalWorld = 100;
     static constexpr int tileMarginWorld = 8;
-
+    
     const glm::mat3 screenToWorld;
     const glm::mat3 worldToScreen;
-
+    
     std::optional<CpuImageWithDepth> tile0;
-
+    
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
       glm::vec3 tileMaxWorld{tileIntervalWorld * 0.5f + tileMarginWorld};
       glm::vec3 tileMinWorld{-tileMaxWorld};
-
+      
       // only need to measure one extreme since the other will be the negation of that
       glm::vec3 screenMax{std::numeric_limits<float>::min()};
-
+      
       for (int i = 0; i < 8; ++i)
       {
         glm::vec3 world{i & 1 ? tileMaxWorld.x : tileMinWorld.x,
@@ -360,10 +360,10 @@ namespace testing
         glm::vec3 screen = world * worldToScreen;
         screenMax = glm::max(screen, screenMax);
       }
-
+      
       return 2 * glm::ivec2(glm::ceil(glm::vec2(screenMax)));
     }
-
+  
   public:
     TileRenderer(
       const raycasting::OrthogonalCamera &camera,
@@ -375,17 +375,17 @@ namespace testing
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
-
+      
       // generate tile image
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
       tile0.emplace(tileImageSize.x, tileImageSize.y);
-
+      
       const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
       const Intersectable &intersectable = sphere;
-
+      
       glm::vec3 minLight{0.2f};
-      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward), glm::vec3{1.f, 1.f, 1.f}}};
-
+      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(2.f * forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
+      
       camera.render(
         tile0->getUnsafeView(),
         intersectable,
@@ -393,18 +393,18 @@ namespace testing
         &directionalLights[0],
         directionalLights.size());
     }
-
+    
     void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::ivec3 screenCenterInWorld)
     {
       frameBuffer.clear(0xff000000, 0x7fff);
-
-      //glm::ivec2 frameBufferSize{frameBuffer.w, frameBuffer.h};
-      //glm::ivec2 destpos = frameBufferSize / 2 - tileSizeScreen / 2;
-
-      for (int y = -3; y < 3; ++y)
-        for (int x = -3; x < 3; ++x)
+      
+      int interval = tileIntervalWorld / 3;
+      
+      for (int y = -10; y < 10; ++y)
+        for (int x = -10; x < 10; ++x)
         {
-          glm::vec3 worldCoords{(float)x * tileIntervalWorld, (float)y * tileIntervalWorld, 0.f};
+          
+          glm::vec3 worldCoords{(float)x * interval, (float)y * interval, 0.f};
           glm::ivec3 screenCoords{worldCoords * worldToScreen};
 
           ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
@@ -427,15 +427,15 @@ int main(int argc, char *argv[])
   try
   {
     Sdl sdl;
-
+    
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, defaults::render::scaleQuality);
-
+    
     setPlatformSpecificSdlHints();
-
+    
     SdlWindow window{sdl, defaults::window::width, defaults::window::height};
     SdlRenderer renderer{window};
     FrameBuffers frameBuffers{renderer, defaults::render::scale};
-
+    
     //----------------------------------------------------------------------------------------------------------------------
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //auto testRenderer =
@@ -448,11 +448,10 @@ int main(int argc, char *argv[])
     //        imageWithDepth.image[y * imageWithDepth.w + x] = p;
     //      }
     //  };
-
+    
     // TEMPORARY: prepare test sprite / tile
-    constexpr const int spriteWidth = 128, spriteHeight = 128;
     raycasting::OrthogonalCamera camera{};
-
+    
     // ANGLES
     // if the desired w:h ratio is 2:1 then angle above horizon should be 30 deg
     // formula:
@@ -464,73 +463,68 @@ int main(int argc, char *argv[])
     //   3 2 41.8103149
     //   4 3 48.5903779
     //   5 4 53.1301024
-
+    
     constexpr auto angleInDegreesFromWidthToHeightRatio = [](int w, int h)
     {
       const float ratio = (float)w / h;
       return 90.f - glm::degrees(glm::atan(glm::sqrt(ratio * ratio - 1.f)));
     };
-
-    struct Ratio {int w, h;};
-
-    Ratio ratios[] = {{2, 1}, {5, 3}, {3, 2}, {4, 3}, {5, 4}};
-
-    for (Ratio &ratio: ratios)
-    {
-      std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
-    }
-
-    constexpr float angleAboveHorizon = 60.f;
+    
+    // ratio experiments
+    //{
+    //  struct Ratio {int w, h;};
+    //  Ratio ratios[] = {{2, 1}, {5, 3}, {3, 2}, {4, 3}, {5, 4}};
+    //  for (Ratio &ratio: ratios)
+    //    std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
+    //}
+    
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-    constexpr float angleAroundVertical = 0.f;
-
+    
+    constexpr float angleAboveHorizon = 60.f;
+    constexpr float angleAroundVertical = 30.f;
+    
     glm::mat3x3{glm::mat4x4{}};
-
-    const glm::mat4 rotAboveHorizon{glm::rotate(glm::mat4(1.f), glm::radians(-angleAboveHorizon), raycasting::right)};
-    const glm::mat4 rotAboveHorizonThenAroundVertical{glm::rotate(rotAboveHorizon, glm::radians(angleAroundVertical), raycasting::up)};
-
-    auto transform = [](glm::vec3 v, glm::mat4 m)
-    {
-      return glm::vec3(glm::vec4(v, 1.f) * m);
-    };
-
-    // TODO: delete
-    // testing glm::rotate
-    {
-      using namespace std;
-      glm::mat4 rotate30aroundright{glm::rotate(glm::mat4(1.f), glm::radians(30.f), raycasting::right)};
-      glm::vec3 rotatedforward{transform(raycasting::forward, rotate30aroundright)};
-
-      cout << "forward rotated 30 deg around right: " << rotatedforward << endl;
-    }
-
-    glm::mat3 screenToWorld{glm::inverse(rotAboveHorizonThenAroundVertical)};
-    glm::mat3 worldToScreen{rotAboveHorizonThenAroundVertical};
-
-    // TODO: delete
-    // testing screenToWorld, worldToScreen transforms
-    {
-      glm::vec3 world0{0.f};
-      glm::vec3 world1{100.f, 0.f, 0.f};
-      glm::vec3 screen0{world0 * worldToScreen};
-      glm::vec3 screen1{world1 * worldToScreen};
-
-      std::cout << "world0: " << world0 << ", screen0: " << screen0 << std::endl;
-      std::cout << "world1: " << world1 << ", screen1: " << screen1 << std::endl;
-    }
-
-    //camera.position = mul(raycasting::backward * cameraDistance, rotAboveHorizonThenAroundVertical);
-    //camera.normal = glm::normalize(transform(raycasting::forward, rotAboveHorizonThenAroundVertical));
-    camera.normal = glm::normalize(transform(raycasting::forward, screenToWorld));
-    camera.xstep = transform(raycasting::right, rotAboveHorizonThenAroundVertical);
-    camera.ystep = transform(raycasting::up, rotAboveHorizonThenAroundVertical);
-
+    
+    glm::mat3 cameraRotation = glm::mat3(glm::rotate(glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right), glm::radians(angleAroundVertical), raycasting::up));
+    camera.normal = raycasting::forward * cameraRotation; // at angle 0 the camera forward (+z) is world forward
+    camera.xstep = raycasting::right * cameraRotation; // at angle 0 the camera +x is world right
+    camera.ystep = raycasting::up * cameraRotation; // at angle 0 the camera +y is world up
+    
     // TODO: delete
     // camera math debugging
     {
-      std::cout << "camera.xstep: " << camera.xstep << ", camera.ystep: " << camera.ystep << std::endl;
+      std::cout
+        << "camera.normal: " << camera.normal << "\n"
+        << "camera.xstep: " << camera.xstep << "\n"
+        << "camera.ystep: " << camera.ystep << "\n";
     }
-
+    
+    // create worldToScreen transform
+    glm::mat3 invCameraRotation = glm::inverse(cameraRotation);
+    // I don't understand exactly why but because of my choice for world and camera coordinates, it is necessary to swap y and z in the worldToScreen transform.
+    glm::mat3 worldToScreen = glm::inverse(cameraRotation);
+    std::swap(worldToScreen[1], worldToScreen[2]);
+    glm::mat3 screenToWorld = glm::inverse(worldToScreen);
+  
+    // TODO: delete
+    // camera math debugging
+    {
+      // with angleAboveHorizon = 90 and angleAroundVertical = 0:
+      //   x -> x
+      // but y -> z and z -> y
+      
+      std::cout
+        << "world +x on screen: " << (glm::vec3{1.f, 0.f, 0.f} * worldToScreen) << "\n"
+        << "world +y on screen: " << (glm::vec3{0.f, 1.f, 0.f} * worldToScreen) << "\n"
+        << "world +z on screen: " << (glm::vec3{0.f, 0.f, 1.f} * worldToScreen) << "\n";
+      
+      std::cout
+        << "screen +x in world: " << (glm::vec3{1.f, 0.f, 0.f} * screenToWorld) << "\n"
+        << "screen +y in world: " << (glm::vec3{0.f, 1.f, 0.f} * screenToWorld) << "\n"
+        << "screen +z in world: " << (glm::vec3{0.f, 0.f, 1.f} * screenToWorld) << "\n";
+    }
+    
+    
     //testing::SpriteRenderer spriteRenderer{camera, cameraDistance, 128, 128};
     testing::TileRenderer tileRenderer{camera, screenToWorld, worldToScreen};
 
@@ -558,17 +552,17 @@ int main(int argc, char *argv[])
 
       frameBuffers.present();
     }
-
+    
     //    SDL_Delay(3000);
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
     //----------------------------------------------------------------------------------------------------------------------
-
+    
     // TODO: render loop: check for events, render to frame buffer, present frame buffer, etc.
   }
   catch (const std::exception &e)
   {
     std::cerr << "caught exception in main: " << e.what() << std::endl;
   }
-
+  
   return 0;
 }
