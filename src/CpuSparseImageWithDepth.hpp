@@ -7,24 +7,9 @@
 #include "CpuImageWithDepth.hpp"
 
 // ImageWithDepth is transparent where depth == 255.
-// A drawing optimization is possible if contiguous strips where depth == 255
-// can be skipped entirely.
-// Memory usage is not important so don't worry about trying to compress the image,
-// this optimization will make the total memory used larger.
-
-// 2-way distance field; left->right and right->left
-// top->down:
-//   value (signed byte):
-//     -n: next row with non-255 depth is at least n rows down
-//     +n: next col with non-255 depth is at least n cols right
-
-// TODO: figure this out
-// needs to support clipping;
-// maybe clipping could be made fast by a structure that can be traversed in any direction:
-//   left->right->top->down
-//   right->left->top->down
-//   left->right->bottom->up
-//   right->left->bottom->up
+// These structs encode gap lengths meant to aid skipping transparent parts of an image when drawing.
+// These encodings do not compress the image, and consume additional memory, but for an image with
+// a lot of contiguous transparency this ought to help performance.
 
 struct ViewOfCpuSparseImageWithDepth
 {

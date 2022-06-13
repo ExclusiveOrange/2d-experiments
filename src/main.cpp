@@ -27,6 +27,8 @@
 // this project
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
+#include "CpuSparseImageWithDepth.hpp"
+#include "drawSparseWithDepth.hpp"
 #include "drawWithDepth.hpp"
 #include "drawWithoutDepth.hpp"
 #include "MovementVectors.hpp"
@@ -37,7 +39,6 @@
 #include "glmprint.hpp"
 #include "NoCopyNoMove.hpp"
 #include "toString.hpp"
-#include "CpuSparseImageWithDepth.hpp"
 
 namespace
 {
@@ -265,13 +266,14 @@ namespace testing
 {
   class TileRenderer : NoCopyNoMove
   {
-    static constexpr int tileIntervalWorld = 10;
+    static constexpr int tileIntervalWorld = 100;
     static constexpr int tileMarginWorld = 1;
 
     const glm::mat3 screenToWorld;
     const glm::mat3 worldToScreen;
 
     std::optional<CpuImageWithDepth> tile0;
+    std::optional<CpuSparseImageWithDepth> tile0Sparse;
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -301,6 +303,7 @@ namespace testing
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
       , tile0{}
+      , tile0Sparse{}
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
@@ -331,32 +334,34 @@ namespace testing
         &directionalLights[0],
         directionalLights.size());
 
+      tile0Sparse.emplace(tile0->getUnsafeView());
+
       // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
       // delete this
       {
-        using namespace std;
-        CpuSparseImageWithDepth sparse{tile0->getUnsafeView()};
-        ViewOfCpuSparseImageWithDepth view{sparse.getUnsafeView()};
+        //using namespace std;
+        //CpuSparseImageWithDepth sparse{tile0->getUnsafeView()};
+        //ViewOfCpuSparseImageWithDepth view{tile0Sparse->getUnsafeView()};
 
-        cout
-          << "sparse test results:\n"
-          << "width: " << view.w << ", height: " << view.h << endl;
-
-        for (int y = view.h - 1; y >= 0; --y)
-        {
-          cout << "row " << dec << y << ", rowGapsUp: " << (int)view.rowGapsUp[y] << ", rowGapsDown: " << (int)view.rowGapsDown[y] << endl;
-          cout << hex;
-          for (int x = 0; x < view.w; ++x)
-            cout << setw(4) << (int)(view.drgb[y * view.w + x] >> 24);
-          cout << endl;
-          cout << dec;
-          for (int x = 0; x < view.w; ++x)
-            cout  << setw(4) << (int)view.colGapsRight[y * view.w + x];
-          cout << endl;
-          for (int x = 0; x < view.w; ++x)
-            cout  << setw(4) << (int)view.colGapsLeft[y * view.w + x];
-          cout << endl;
-        }
+        //cout
+        //  << "sparse test results:\n"
+        //  << "width: " << view.w << ", height: " << view.h << endl;
+        //
+        //for (int y = view.h - 1; y >= 0; --y)
+        //{
+        //  cout << "row " << dec << y << ", rowGapsUp: " << (int)view.rowGapsUp[y] << ", rowGapsDown: " << (int)view.rowGapsDown[y] << endl;
+        //  cout << hex;
+        //  for (int x = 0; x < view.w; ++x)
+        //    cout << setw(4) << (int)(view.drgb[y * view.w + x] >> 24);
+        //  cout << endl;
+        //  cout << dec;
+        //  for (int x = 0; x < view.w; ++x)
+        //    cout  << setw(4) << (int)view.colGapsRight[y * view.w + x];
+        //  cout << endl;
+        //  for (int x = 0; x < view.w; ++x)
+        //    cout  << setw(4) << (int)view.colGapsLeft[y * view.w + x];
+        //  cout << endl;
+        //}
 
       }
     }
@@ -378,9 +383,11 @@ namespace testing
           glm::vec3 worldCoords{(float)x * interval, (float)y * interval, 0.f};
           glm::ivec3 screenCoords{worldCoords * worldToScreen};
 
-          ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
+          //ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
+          ViewOfCpuSparseImageWithDepth tileView = tile0Sparse->getUnsafeView();
 
-          drawWithDepth(
+          //drawWithDepth(
+          drawSparseWithDepth(
             frameBuffer,
             frameBuffer.w / 2 + screenCoords.x - tileView.w / 2,
             frameBuffer.h / 2 + screenCoords.y - tileView.h / 2,
