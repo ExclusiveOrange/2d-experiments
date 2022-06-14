@@ -5,8 +5,8 @@
 static void
 measureImageBounds(
   const ViewOfCpuImageWithDepth &image,
-  int *minx, int *maxx,
-  int *miny, int *maxy)
+  int *minx, int *miny,
+  int *width, int *height)
 {
   int _minx = image.w - 1;
   int _maxx = 0;
@@ -33,7 +33,7 @@ measureImageBounds(
     }
 
   *minx = _minx;
-  *maxx = _maxx;
   *miny = _miny;
-  *maxy = _maxy;
+  *width = _maxx - _minx + 1;
+  *height = _maxy - _miny + 1;
 }

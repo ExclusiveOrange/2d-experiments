@@ -276,8 +276,10 @@ namespace testing
     const glm::mat3 worldToScreen;
     const glm::imat3x3 tileIntervalScreen;
 
-    std::optional<CpuImageWithDepth> tile0;
-    glm::ivec2 tileAnchor;
+    std::optional<CpuImageWithDepth> quadImage, sphereImage;
+    glm::ivec3 quadAnchor, sphereAnchor;
+    //std::optional<CpuImageWithDepth> tile0;
+    //glm::ivec2 tileAnchor;
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -307,81 +309,61 @@ namespace testing
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
       , tileIntervalScreen{glm::mat3{(float)tileIntervalWorld} * worldToScreen}
-      , tile0{}
+      , quadImage{}, sphereImage{}
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
 
       // generate tile image
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
-      tile0.emplace(tileImageSize.x, tileImageSize.y);
+      CpuImageWithDepth renderTemp{tileImageSize.x, tileImageSize.y};
+      //tile0.emplace(tileImageSize.x, tileImageSize.y);
 
       std::cout << toString("TileRenderer: tileIntervalWorld(", tileIntervalWorld, "), tileMarginWorld(", tileMarginWorld, "), tileImageSize(", tileImageSize.x, " x ", tileImageSize.y, ")\n");
 
-      const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
-      const float halfIntervalPlusMargin = tileIntervalWorld * 0.45f + tileMarginWorld;
-      //const Quad quad{glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
+      const Sphere sphere{glm::vec3{0.f, 0.f, -tileIntervalWorld * 0.2f}, tileIntervalWorld * 0.38f};
+      const float halfIntervalPlusMargin = tileIntervalWorld * 0.48f + tileMarginWorld;
+      const Quad quad{glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
       //const Intersectable &intersectable = quad;
 
       glm::vec3 minLight{0.2f};
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
 
-      auto intersect = [&](const Ray &ray)
+      // render and trim tile images
       {
-        return sphere.intersect(ray);
-      };
+        int minx, miny, width, height;
 
-      camera.render(
-        tile0->getUnsafeView(),
-        intersect,
-        minLight,
-        &directionalLights[0],
-        directionalLights.size());
+        ViewOfCpuImageWithDepth renderTempView = renderTemp.getUnsafeView();
 
-      // set tile0Sparse to trimmed copy of rendered image
-      {
-        int minx, maxx, miny, maxy;
-        const ViewOfCpuImageWithDepth view = tile0->getUnsafeView();
-        measureImageBounds(view, &minx, &maxx, &miny, &maxy);
+        // sphere
+        {
+          camera.render(
+            renderTempView,
+            [&](const Ray &ray) {return sphere.intersect(ray);},
+            minLight,
+            &directionalLights[0],
+            directionalLights.size());
+          measureImageBounds(renderTempView, &minx, &miny, &width, &height);
+          sphereAnchor.x = renderTempView.w / 2 - minx;
+          sphereAnchor.y = renderTempView.h / 2 - miny;
+          sphereImage.emplace(width, height);
+          copySubImageWithDepth(sphereImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
+        }
 
-        // set tile anchor to center of render area
-        tileAnchor.x = view.w / 2 - minx;
-        tileAnchor.y = view.h / 2 - miny;
-
-        CpuImageWithDepth trimmed{maxx - minx + 1, maxy - miny + 1};
-        copySubImageWithDepth(trimmed.getUnsafeView(), 0, 0, view, minx, miny, maxx - minx + 1, maxy - miny + 1);
-        // replace tile0 with trimmed version of itself
-        tile0.emplace(maxx - minx + 1, maxy - miny + 1);
-        copySubImageWithDepth(tile0->getUnsafeView(), 0, 0, trimmed.getUnsafeView(), 0, 0, maxx - minx + 1, maxy - miny + 1);
-      }
-
-      // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
-      // delete this
-      {
-        //using namespace std;
-        //CpuSparseImageWithDepth sparse{tile0->getUnsafeView()};
-        //ViewOfCpuSparseImageWithDepth view{tile0Sparse->getUnsafeView()};
-
-        //cout
-        //  << "sparse test results:\n"
-        //  << "width: " << view.w << ", height: " << view.h << endl;
-        //
-        //for (int y = view.h - 1; y >= 0; --y)
-        //{
-        //  cout << "row " << dec << y << ", rowGapsUp: " << (int)view.rowGapsUp[y] << ", rowGapsDown: " << (int)view.rowGapsDown[y] << endl;
-        //  cout << hex;
-        //  for (int x = 0; x < view.w; ++x)
-        //    cout << setw(4) << (int)(view.drgb[y * view.w + x] >> 24);
-        //  cout << endl;
-        //  cout << dec;
-        //  for (int x = 0; x < view.w; ++x)
-        //    cout  << setw(4) << (int)view.colGapsRight[y * view.w + x];
-        //  cout << endl;
-        //  for (int x = 0; x < view.w; ++x)
-        //    cout  << setw(4) << (int)view.colGapsLeft[y * view.w + x];
-        //  cout << endl;
-        //}
-
+        // quad
+        {
+          camera.render(
+            renderTempView,
+            [&](const Ray &ray) {return quad.intersect(ray);},
+            minLight,
+            &directionalLights[0],
+            directionalLights.size());
+          measureImageBounds(renderTempView, &minx, &miny, &width, &height);
+          quadAnchor.x = renderTempView.w / 2 - minx;
+          quadAnchor.y = renderTempView.h / 2 - miny;
+          quadImage.emplace(width, height);
+          copySubImageWithDepth(quadImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
+        }
       }
     }
 
@@ -401,28 +383,28 @@ namespace testing
       for (glm::ivec3 xyz{0.f, -radiusInTiles, 0.f}; xyz.y < radiusInTiles; ++xyz.y)
         for (xyz.x = -radiusInTiles; xyz.x < radiusInTiles; ++xyz.x)
         {
-          glm::ivec3 thisTileOffset{xyz * tileIntervalScreen - glm::ivec3{tileAnchor, 0.f}};
+          glm::ivec3 thisTileOffset{xyz * tileIntervalScreen};
           glm::ivec3 thisTilePosition{thisTileOffset + screenCoordsOfWorldCenter};
-          //glm::vec3 thisTileOffset{(float)x * interval, (float)y * interval, 0.f};
-          //glm::vec3 worldCoords{-screenCenterInWorld + thisTileOffset};
-          //glm::ivec2 thisTileOffsetScreen{xy * tileIntervalScreen};
-          //glm::ivec2 screenCoords{screenCoordsOfWorldCenter + thisTileOffsetScreen}
-          ////glm::ivec3 screenCoords{worldCoords * worldToScreen};
-          //
-          ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
 
-          //drawWithDepth(
-          //  frameBuffer,
-          //  frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
-          //  frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
-          //  tileView,
-          //  screenCoords.z);
-          drawWithDepth(
-            frameBuffer,
-            frameBuffer.w / 2 + thisTilePosition.x,
-            frameBuffer.h / 2 + thisTilePosition.y,
-            tileView,
-            thisTilePosition.z);
+          {
+            glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
+            drawWithDepth(
+              frameBuffer,
+              frameBuffer.w / 2 + screenPosition.x,
+              frameBuffer.h / 2 + screenPosition.y,
+              quadImage->getUnsafeView(),
+              screenPosition.z);
+          }
+
+          {
+            glm::ivec3 screenPosition = thisTilePosition - sphereAnchor;
+            drawWithDepth(
+              frameBuffer,
+              frameBuffer.w / 2 + screenPosition.x,
+              frameBuffer.h / 2 + screenPosition.y,
+              sphereImage->getUnsafeView(),
+              screenPosition.z);
+          }
         }
     }
   };
