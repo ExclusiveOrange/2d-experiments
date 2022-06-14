@@ -7,87 +7,48 @@
 
 namespace raycasting::shapes
 {
-  struct QuadUp : Intersectable
+  static
+  std::function<std::optional<Intersection>(Ray ray)>
+  makeQuad(glm::vec3 diffuse, glm::vec3 center, glm::vec3 a, glm::vec3 b)
   {
-    QuadUp(glm::vec3 diffuse, glm::vec3 center, float radius)
-      : diffuse{ diffuse}, center{center}, radius{radius} {}
+    const glm::vec3 n{glm::normalize(glm::cross(b, a))};
+    const float al2{glm::dot(a, a)}, bl2{glm::dot(b, b)};
 
-    std::optional<Intersection>
-    intersect(const Ray &ray) const override
-    {
-      constexpr const float small = 0.001f;
-      // ray: o + t*d
-      // plane: (x - p) dot n = 0
-      // intersection:
-      //   ([o + t*d] - p) dot n = 0
-      //   (o - p) dot n + t * d dot n = 0
-      //   t = [(p - o) dot n] / (d dot n)
-      // where in this case n = raycasting::up and p = <0,0,0>
-
-      const float dDotN = glm::dot(ray.unitDirection, up);
-
-      if (-small < dDotN && dDotN < small) // ray parallel or close to parallel with plane
-        return std::nullopt;
-
-      const float t = glm::dot(-ray.origin, up) / dDotN;
-      const glm::vec3 isect{ray.origin + t * ray.unitDirection};
-
-      if (glm::abs(glm::dot(isect - center, right)) > radius || glm::abs(glm::dot(isect - center, forward)) > radius)
-        return std::nullopt;
-
-      return Intersection{.position = isect, .normal = up, .diffuse = diffuse, .distance = t};
-    }
-
-  private:
-    const glm::vec3 diffuse, center;
-    const float radius;
-  };
-
-  struct Quad : Intersectable
-  {
-    Quad(glm::vec3 diffuse, glm::vec3 center, glm::vec3 a, glm::vec3 b)
-      : diffuse{diffuse}, p{center}, a{a}, b{b}, n{glm::normalize(glm::cross(a, b))}, al2{glm::dot(a, a)}, bl2{glm::dot(b, b)} {}
-
-    std::optional<Intersection>
-    intersect(const Ray &ray) const override
+    return [=]
+      (Ray ray) -> std::optional<Intersection>
     {
       constexpr const float small = 0.001f;
 
       // ray: o + t*d
-      // plane: (x - p) dot n = 0
+      // plane: (x - center) dot n = 0
       // intersection:
-      //   ([o + t*d] - p) dot n = 0
-      //   (o - p) dot n + t * d dot n = 0
-      //   t = [(p - o) dot n] / (d dot n)
-      // where in this case n = raycasting::up and p = <0,0,0>
+      //   ([o + t*d] - center) dot n = 0
+      //   (o - center) dot n + t * d dot n = 0
+      //   t = [(center - o) dot n] / (d dot n)
 
       const float dDotN = glm::dot(ray.unitDirection, n);
 
-      if (-small < dDotN && dDotN < small)
+      if (glm::abs(dDotN) < small)
         return std::nullopt; // ray parallel or close to parallel with plane
 
-      const float t = glm::dot(p - ray.origin, n) / dDotN;
+      const float t = glm::dot(center - ray.origin, n) / dDotN;
 
       const glm::vec3 isect{ray.origin + t * ray.unitDirection};
 
-      if (glm::abs(glm::dot(isect - p, a)) > al2 || glm::abs(glm::dot(isect - p, b)) > bl2)
+      if (glm::abs(glm::dot(isect - center, a)) > al2 || glm::abs(glm::dot(isect - center, b)) > bl2)
         return std::nullopt; // ray intersects plane but not within bounds of quad
 
-      return Intersection{.position = isect, .normal = up, .diffuse = diffuse, .distance = t};
-    }
+      return Intersection{.position = isect, .normal = n, .diffuse = diffuse, .distance = t};
+    };
+  }
 
-  private:
-    const glm::vec3 diffuse, p, a, b, n;
-    const float al2, bl2;
-  };
-
-  struct Sphere : Intersectable
+  static
+  std::function<std::optional<Intersection>(Ray ray)>
+  makeSphere(glm::vec3 diffuse, glm::vec3 center, float radius)
   {
-    Sphere(glm::vec3 diffuse, glm::vec3 center, float radius)
-      : diffuse{diffuse}, center{center}, sqradius{radius * radius} {}
+    const float sqradius = radius * radius;
 
-    std::optional<Intersection>
-    intersect(const Ray &ray) const override
+    return [=](Ray ray) -> std::optional<Intersection>
     {
       // ray is ray.origin + d * ray.unitDirection = x
       // sphere is |x - center| = radius
@@ -112,11 +73,7 @@ namespace raycasting::shapes
       // sphere is wholly ahead of ray origin and emits a surface intersection
       Intersection intersection{.position = ray.origin + d * ray.unitDirection, .diffuse = diffuse, .distance = d};
       intersection.normal = glm::normalize(intersection.position - center);
-      return intersection;
-    }
-
-  private:
-    const glm::vec3 diffuse, center;
-    const float sqradius;
-  };
+      return std::move(intersection);
+    };
+  }
 }

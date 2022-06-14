@@ -35,6 +35,7 @@
 #include "measureImageBounds.hpp"
 #include "MovementVectors.hpp"
 #include "raycasting.hpp"
+#include "raycasting_csg.hpp"
 #include "raycasting_shapes.hpp"
 
 // utility
@@ -277,10 +278,8 @@ namespace testing
     const glm::mat3 worldToScreen;
     const glm::imat3x3 tileIntervalScreen;
 
-    std::optional<CpuImageWithDepth> quadImage, sphereImage;
-    glm::ivec3 quadAnchor, sphereAnchor;
-    //std::optional<CpuImageWithDepth> tile0;
-    //glm::ivec2 tileAnchor;
+    std::optional<CpuImageWithDepth> quadImage, sphereImage, unionImage;
+    glm::ivec3 quadAnchor, sphereAnchor, unionAnchor;
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -310,22 +309,20 @@ namespace testing
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
       , tileIntervalScreen{glm::mat3{(float)tileIntervalWorld} * worldToScreen}
-      , quadImage{}, sphereImage{}
+      , quadImage{}, sphereImage{}, unionImage{}
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
 
-      // generate tile image
+      // temporary image for raycasting
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
       CpuImageWithDepth renderTemp{tileImageSize.x, tileImageSize.y};
-      //tile0.emplace(tileImageSize.x, tileImageSize.y);
 
-      std::cout << toString("TileRenderer: tileIntervalWorld(", tileIntervalWorld, "), tileMarginWorld(", tileMarginWorld, "), tileImageSize(", tileImageSize.x, " x ", tileImageSize.y, ")\n");
-
-      const Sphere sphere{glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}), glm::vec3{0.f, 0.f, -tileIntervalWorld * 0.2f}, tileIntervalWorld * 0.38f};
+      // objects to render
+      const auto sphere = makeSphere(glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}), glm::vec3{0.f}, tileIntervalWorld * 0.38f);
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.48f + tileMarginWorld;
-      const Quad quad{glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}), glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
-      //const Intersectable &intersectable = quad;
+      const auto quad = makeQuad(glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}), glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right);
+      //const Union _union{std::vector<Intersectable>{{sphere, quad}}};
 
       glm::vec3 minLight{0.2f};
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
@@ -340,7 +337,7 @@ namespace testing
         {
           camera.render(
             renderTempView,
-            [&](const Ray &ray) {return sphere.intersect(ray);},
+            sphere,
             minLight,
             &directionalLights[0],
             directionalLights.size());
@@ -355,7 +352,7 @@ namespace testing
         {
           camera.render(
             renderTempView,
-            [&](const Ray &ray) {return quad.intersect(ray);},
+            quad,
             minLight,
             &directionalLights[0],
             directionalLights.size());
@@ -372,7 +369,6 @@ namespace testing
     {
       frameBuffer.clear(0xff000000, 0x7fff);
 
-      //int interval = tileIntervalWorld;
       glm::ivec3 screenCoordsOfWorldCenter{-screenCenterInWorld * worldToScreen};
 
       // TODO: figure out how to enumerate all visible tiles and no non-visible tiles,
