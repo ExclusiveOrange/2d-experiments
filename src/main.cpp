@@ -29,8 +29,6 @@
 #include "copySubImageWithDepth.hpp"
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
-#include "CpuSparseImageWithDepth.hpp"
-#include "drawSparseWithDepth.hpp"
 #include "drawWithDepth.hpp"
 #include "drawWithoutDepth.hpp"
 #include "measureImageBounds.hpp"
@@ -278,8 +276,6 @@ namespace testing
     const glm::mat3 worldToScreen;
 
     std::optional<CpuImageWithDepth> tile0;
-    std::optional<CpuSparseImageWithDepth> tile0Sparse;
-
     glm::ivec2 tileAnchor;
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
@@ -310,7 +306,6 @@ namespace testing
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
       , tile0{}
-      , tile0Sparse{}
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
@@ -356,7 +351,6 @@ namespace testing
         // replace tile0 with trimmed version of itself
         tile0.emplace(maxx - minx + 1, maxy - miny + 1);
         copySubImageWithDepth(tile0->getUnsafeView(), 0, 0, trimmed.getUnsafeView(), 0, 0, maxx - minx + 1, maxy - miny + 1);
-        tile0Sparse.emplace(trimmed.getUnsafeView());
       }
 
       // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
@@ -410,10 +404,8 @@ namespace testing
             glm::ivec3 screenCoords{worldCoords * worldToScreen};
 
             ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
-            //ViewOfCpuSparseImageWithDepth tileView = tile0Sparse->getUnsafeView();
 
             drawWithDepth(
-            //drawSparseWithDepth(
               frameBuffer,
               frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
               frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
