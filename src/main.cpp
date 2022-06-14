@@ -60,7 +60,7 @@ namespace
 
   namespace defaults::render
   {
-    constexpr const float scale = 1.f;
+    constexpr const float scale = 2.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
 
@@ -150,6 +150,8 @@ namespace
     {
       if (window == nullptr)
         throw error("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
+
+      SDL_SetWindowResizable(window, SDL_TRUE);
     }
 
     SDL_Window *const window;
@@ -319,9 +321,9 @@ namespace testing
 
       std::cout << toString("TileRenderer: tileIntervalWorld(", tileIntervalWorld, "), tileMarginWorld(", tileMarginWorld, "), tileImageSize(", tileImageSize.x, " x ", tileImageSize.y, ")\n");
 
-      //const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
+      const Sphere sphere{glm::vec3{0.f}, tileIntervalWorld * 0.45f};
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.45f + tileMarginWorld;
-      const Quad quad{glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
+      //const Quad quad{glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
       //const Intersectable &intersectable = quad;
 
       glm::vec3 minLight{0.2f};
@@ -329,7 +331,7 @@ namespace testing
 
       auto intersect = [&](const Ray &ray)
       {
-        return quad.intersect(ray);
+        return sphere.intersect(ray);
       };
 
       camera.render(
@@ -394,9 +396,11 @@ namespace testing
       // given that the camera angle hasn't been set in stone yet so the formula should be generalized for now
       // Probably could use flood-fill where a tile is a candidate if it overlaps the screen.
 
-      for (int y = -10; y < 10; ++y)
-        for (int x = -10; x < 10; ++x)
-          if ((y ^ x) & 1)
+      int radiusInTiles = 30;
+
+      for (int y = -radiusInTiles; y < radiusInTiles; ++y)
+        for (int x = -radiusInTiles; x < radiusInTiles; ++x)
+          //if ((y ^ x) & 1)
           {
             glm::vec3 thisTileOffset{(float)x * interval, (float)y * interval, 0.f};
             glm::vec3 worldCoords{-screenCenterInWorld + thisTileOffset};
