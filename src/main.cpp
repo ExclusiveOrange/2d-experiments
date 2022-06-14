@@ -15,6 +15,7 @@
 #include <limits>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -383,7 +384,7 @@ namespace testing
       }
     }
 
-    void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::ivec3 screenCenterInWorld)
+    void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::vec3 screenCenterInWorld)
     {
       frameBuffer.clear(0xff000000, 0x7fff);
 
@@ -395,22 +396,23 @@ namespace testing
 
       for (int y = -10; y < 10; ++y)
         for (int x = -10; x < 10; ++x)
-        {
+          if ((y ^ x) & 1)
+          {
+            glm::vec3 thisTileOffset{(float)x * interval, (float)y * interval, 0.f};
+            glm::vec3 worldCoords{-screenCenterInWorld + thisTileOffset};
+            glm::ivec3 screenCoords{worldCoords * worldToScreen};
 
-          glm::vec3 worldCoords{(float)x * interval, (float)y * interval, 0.f};
-          glm::ivec3 screenCoords{worldCoords * worldToScreen};
+            //ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
+            ViewOfCpuSparseImageWithDepth tileView = tile0Sparse->getUnsafeView();
 
-          //ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
-          ViewOfCpuSparseImageWithDepth tileView = tile0Sparse->getUnsafeView();
-
-          //drawWithDepth(
-          drawSparseWithDepth(
-            frameBuffer,
-            frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
-            frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
-            tileView,
-            screenCoords.z);
-        }
+            //drawWithDepth(
+            drawSparseWithDepth(
+              frameBuffer,
+              frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
+              frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
+              tileView,
+              screenCoords.z);
+          }
     }
   };
 }
@@ -503,10 +505,33 @@ int main(int argc, char *argv[])
     const MovementVectors movementVectors{screenToWorld};
 
     glm::vec3 worldPosition{0.f};
+    glm::vec3 movementRequest;
+    float movementSpeedPerFrame = 10.f;
+
+    bool upActive, downActive, leftActive, rightActive;
+
+    struct KeyStates
+    {
+      uint8_t up, down, left, right; // count of time this action is currently active (in case multiple keys are bound to the same action)
+    } keyStates;
+
+    std::unordered_map<SDL_Keycode, uint8_t *> keyToState
+      {
+        {SDLK_w, &keyStates.up},
+        {SDLK_UP, &keyStates.up},
+        {SDLK_s, &keyStates.down},
+        {SDLK_DOWN, &keyStates.down},
+        {SDLK_a, &keyStates.left},
+        {SDLK_LEFT, &keyStates.left},
+        {SDLK_d, &keyStates.right},
+        {SDLK_RIGHT, &keyStates.right}
+      };
 
     // render loop
     for (bool quit = false; !quit;)
     {
+      movementRequest = glm::vec3{0.f};
+
       // handle SDL events
       for (SDL_Event e; 0 != SDL_PollEvent(&e);)
       {
@@ -518,17 +543,41 @@ int main(int argc, char *argv[])
           // TODO: keep track of which relevant keys are pressed
         case SDL_KEYDOWN:
           if (!e.key.repeat)
-            std::cout << "keydown" << std::endl;
+          {
+            SDL_Keycode keycode = e.key.keysym.sym;
+            if (auto keyToStateIt = keyToState.find(keycode); keyToStateIt != keyToState.end())
+              *keyToStateIt->second += 1;
+          }
           break;
         case SDL_KEYUP:
-          std::cout << "keyup" << std::endl;
+          SDL_Keycode keycode = e.key.keysym.sym;
+          if (auto keyToStateIt = keyToState.find(keycode); keyToStateIt != keyToState.end())
+            *keyToStateIt->second -= 1;
           break;
         }
       }
 
-      // TODO: adjust worldPosition based on which movement keys are pressed down
+      // TODO: move elsewhere
+      // movement
+      {
+        movementRequest = glm::vec3{0.f};
 
-      glm::vec3 screenCenterInWorld{0.f};
+        if (keyStates.up)
+          movementRequest += movementVectors.up;
+        if (keyStates.down)
+          movementRequest += movementVectors.down;
+        if (keyStates.left)
+          movementRequest += movementVectors.left;
+        if (keyStates.right)
+          movementRequest += movementVectors.right;
+
+        if (movementRequest != glm::vec3{0.f})
+          movementRequest = glm::normalize(movementRequest);
+
+        worldPosition += movementRequest * movementSpeedPerFrame;
+      }
+
+      glm::vec3 screenCenterInWorld = worldPosition;
 
       auto tstart = clock::now();
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
