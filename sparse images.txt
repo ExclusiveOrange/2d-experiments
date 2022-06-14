@@ -1,0 +1,19 @@
+2022.06.13
+
+CpuImageWithDepth versus CpuSparseImageWithDepth
+
+on 9700k
+with an image of a tile that is perhaps 2/3 empty
+drawSparseWithDepth is about 30% faster than drawWithDepth
+
+on Apple M1
+drawSparseWithDepth is about the same speed as drawWithDepth
+
+perhaps M1 is more sensitive to the extra memory lookups in sparse drawing
+
+it is difficult to improve the performance without adding additional steps
+because the memory can't easily be pre-fetched when it isn't known what memory should be pre-fetched
+
+it may ultimately be best to not use sparse images at all,
+but instead try to optimize rendering to use SIMD instructions to operate on several pixels at once
+though there are alignment issues it may not matter on modern CPUs

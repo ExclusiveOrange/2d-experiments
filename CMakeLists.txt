@@ -26,9 +26,11 @@ project(2d-experiments CXX)
 
 # enable full optimization
 if (MSVC)
+    message("MSVC")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast")
 elseif (GNU OR CLANG)
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math")
+    message("GNU OR CLANG")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -ftree-vectorize -march=native")
 endif ()
 
 # enable exceptions (off by default on clang-cl at least, which unfortunately detects as MSVC)

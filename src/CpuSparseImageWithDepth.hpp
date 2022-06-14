@@ -11,6 +11,9 @@
 // These encodings do not compress the image, and consume additional memory, but for an image with
 // a lot of contiguous transparency this ought to help performance.
 
+// TODO: probably don't need both directions since was able to implement clipped drawSparseWithDepth
+// using only rowGapsUp and colGapsRight
+
 struct ViewOfCpuSparseImageWithDepth
 {
   // size [h]: number of rows down/up to skip
