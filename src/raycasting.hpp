@@ -93,8 +93,9 @@ namespace raycasting
             
             for (int il = 0; il < numDirectionalLights; ++il)
               lightSum += directionalLights[il].calculate(i->position, i->normal);
-            
-            glm::vec3 color = 255.f * glm::clamp(lightSum, minLight, glm::vec3{1.f});
+
+            lightSum = glm::clamp(lightSum, minLight, glm::vec3{1.f});
+            glm::vec3 color = 255.f * glm::clamp(lightSum * i->diffuse, glm::vec3{0.f}, glm::vec3{1.f});
 
             // old way of calculating depth from minDepth, maxDepth
             //uint8_t depth = (uint8_t)glm::clamp((i->distance - minDepth) * rDepthRange, 0.f, 255.f);

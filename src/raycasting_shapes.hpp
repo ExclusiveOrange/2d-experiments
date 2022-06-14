@@ -9,8 +9,8 @@ namespace raycasting::shapes
 {
   struct QuadUp : Intersectable
   {
-    QuadUp(glm::vec3 center, float radius)
-      : center{center}, radius{radius} {}
+    QuadUp(glm::vec3 diffuse, glm::vec3 center, float radius)
+      : diffuse{ diffuse}, center{center}, radius{radius} {}
 
     std::optional<Intersection>
     intersect(const Ray &ray) const override
@@ -35,18 +35,18 @@ namespace raycasting::shapes
       if (glm::abs(glm::dot(isect - center, right)) > radius || glm::abs(glm::dot(isect - center, forward)) > radius)
         return std::nullopt;
 
-      return Intersection{.position = isect, .normal = up, .distance = t};
+      return Intersection{.position = isect, .normal = up, .diffuse = diffuse, .distance = t};
     }
 
   private:
-    const glm::vec3 center;
+    const glm::vec3 diffuse, center;
     const float radius;
   };
 
   struct Quad : Intersectable
   {
-    Quad(glm::vec3 center, glm::vec3 a, glm::vec3 b)
-      : p{center}, a{a}, b{b}, n{glm::normalize(glm::cross(a, b))}, al2{glm::dot(a, a)}, bl2{glm::dot(b, b)} {}
+    Quad(glm::vec3 diffuse, glm::vec3 center, glm::vec3 a, glm::vec3 b)
+      : diffuse{diffuse}, p{center}, a{a}, b{b}, n{glm::normalize(glm::cross(a, b))}, al2{glm::dot(a, a)}, bl2{glm::dot(b, b)} {}
 
     std::optional<Intersection>
     intersect(const Ray &ray) const override
@@ -73,18 +73,18 @@ namespace raycasting::shapes
       if (glm::abs(glm::dot(isect - p, a)) > al2 || glm::abs(glm::dot(isect - p, b)) > bl2)
         return std::nullopt; // ray intersects plane but not within bounds of quad
 
-      return Intersection{.position = isect, .normal = up, .distance = t};
+      return Intersection{.position = isect, .normal = up, .diffuse = diffuse, .distance = t};
     }
 
   private:
-    const glm::vec3 p, a, b, n;
+    const glm::vec3 diffuse, p, a, b, n;
     const float al2, bl2;
   };
 
   struct Sphere : Intersectable
   {
-    Sphere(glm::vec3 center, float radius)
-      : center{center}, sqradius{radius * radius} {}
+    Sphere(glm::vec3 diffuse, glm::vec3 center, float radius)
+      : diffuse{diffuse}, center{center}, sqradius{radius * radius} {}
 
     std::optional<Intersection>
     intersect(const Ray &ray) const override
@@ -110,13 +110,13 @@ namespace raycasting::shapes
       float d = outsideRadical - sqrtInsideRadical;
 
       // sphere is wholly ahead of ray origin and emits a surface intersection
-      Intersection intersection{.position = ray.origin + d * ray.unitDirection, .distance = d};
+      Intersection intersection{.position = ray.origin + d * ray.unitDirection, .diffuse = diffuse, .distance = d};
       intersection.normal = glm::normalize(intersection.position - center);
       return intersection;
     }
 
   private:
-    const glm::vec3 center;
+    const glm::vec3 diffuse, center;
     const float sqradius;
   };
 }

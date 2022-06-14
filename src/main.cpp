@@ -321,9 +321,9 @@ namespace testing
 
       std::cout << toString("TileRenderer: tileIntervalWorld(", tileIntervalWorld, "), tileMarginWorld(", tileMarginWorld, "), tileImageSize(", tileImageSize.x, " x ", tileImageSize.y, ")\n");
 
-      const Sphere sphere{glm::vec3{0.f, 0.f, -tileIntervalWorld * 0.2f}, tileIntervalWorld * 0.38f};
+      const Sphere sphere{glm::vec3{0.2f, 1.f, 0.2f}, glm::vec3{0.f, 0.f, -tileIntervalWorld * 0.2f}, tileIntervalWorld * 0.38f};
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.48f + tileMarginWorld;
-      const Quad quad{glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
+      const Quad quad{glm::vec3{1.f, 0.2f, 0.2f}, glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
       //const Intersectable &intersectable = quad;
 
       glm::vec3 minLight{0.2f};
