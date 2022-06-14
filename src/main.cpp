@@ -274,6 +274,7 @@ namespace testing
 
     const glm::mat3 screenToWorld;
     const glm::mat3 worldToScreen;
+    const glm::imat3x3 tileIntervalScreen;
 
     std::optional<CpuImageWithDepth> tile0;
     glm::ivec2 tileAnchor;
@@ -305,6 +306,7 @@ namespace testing
       glm::mat3 worldToScreen)
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
+      , tileIntervalScreen{glm::mat3{(float)tileIntervalWorld} * worldToScreen}
       , tile0{}
     {
       using namespace raycasting;
@@ -387,7 +389,8 @@ namespace testing
     {
       frameBuffer.clear(0xff000000, 0x7fff);
 
-      int interval = tileIntervalWorld;
+      //int interval = tileIntervalWorld;
+      glm::ivec3 screenCoordsOfWorldCenter{-screenCenterInWorld * worldToScreen};
 
       // TODO: figure out how to enumerate all visible tiles and no non-visible tiles,
       // given that the camera angle hasn't been set in stone yet so the formula should be generalized for now
@@ -395,23 +398,32 @@ namespace testing
 
       int radiusInTiles = 30;
 
-      for (int y = -radiusInTiles; y < radiusInTiles; ++y)
-        for (int x = -radiusInTiles; x < radiusInTiles; ++x)
-          //if ((y ^ x) & 1)
-          {
-            glm::vec3 thisTileOffset{(float)x * interval, (float)y * interval, 0.f};
-            glm::vec3 worldCoords{-screenCenterInWorld + thisTileOffset};
-            glm::ivec3 screenCoords{worldCoords * worldToScreen};
+      for (glm::ivec3 xyz{0.f, -radiusInTiles, 0.f}; xyz.y < radiusInTiles; ++xyz.y)
+        for (xyz.x = -radiusInTiles; xyz.x < radiusInTiles; ++xyz.x)
+        {
+          glm::ivec3 thisTileOffset{xyz * tileIntervalScreen - glm::ivec3{tileAnchor, 0.f}};
+          glm::ivec3 thisTilePosition{thisTileOffset + screenCoordsOfWorldCenter};
+          //glm::vec3 thisTileOffset{(float)x * interval, (float)y * interval, 0.f};
+          //glm::vec3 worldCoords{-screenCenterInWorld + thisTileOffset};
+          //glm::ivec2 thisTileOffsetScreen{xy * tileIntervalScreen};
+          //glm::ivec2 screenCoords{screenCoordsOfWorldCenter + thisTileOffsetScreen}
+          ////glm::ivec3 screenCoords{worldCoords * worldToScreen};
+          //
+          ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
 
-            ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
-
-            drawWithDepth(
-              frameBuffer,
-              frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
-              frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
-              tileView,
-              screenCoords.z);
-          }
+          //drawWithDepth(
+          //  frameBuffer,
+          //  frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
+          //  frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
+          //  tileView,
+          //  screenCoords.z);
+          drawWithDepth(
+            frameBuffer,
+            frameBuffer.w / 2 + thisTilePosition.x,
+            frameBuffer.h / 2 + thisTilePosition.y,
+            tileView,
+            thisTilePosition.z);
+        }
     }
   };
 }
@@ -511,7 +523,7 @@ int main(int argc, char *argv[])
 
     struct KeyStates
     {
-      uint8_t up, down, left, right; // count of time this action is currently active (in case multiple keys are bound to the same action)
+      uint8_t up{}, down{}, left{}, right{}; // count of time this action is currently active (in case multiple keys are bound to the same action)
     } keyStates;
 
     std::unordered_map<SDL_Keycode, uint8_t *> keyToState
@@ -571,9 +583,7 @@ int main(int argc, char *argv[])
           movementRequest += movementVectors.right;
 
         if (movementRequest != glm::vec3{0.f})
-          movementRequest = glm::normalize(movementRequest);
-
-        worldPosition += movementRequest * movementSpeedPerFrame;
+          worldPosition += glm::normalize(movementRequest) * movementSpeedPerFrame;
       }
 
       glm::vec3 screenCenterInWorld = worldPosition;
