@@ -278,8 +278,8 @@ namespace testing
     const glm::mat3 worldToScreen;
     const glm::imat3x3 tileIntervalScreen;
 
-    std::optional<CpuImageWithDepth> quadImage, sphereImage, unionImage;
-    glm::ivec3 quadAnchor, sphereAnchor, unionAnchor;
+    std::optional<CpuImageWithDepth> quadImage{}, sphereImage{}, unionImage{};
+    glm::ivec3 quadAnchor{}, sphereAnchor{}, unionAnchor{};
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -309,7 +309,6 @@ namespace testing
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
       , tileIntervalScreen{glm::mat3{(float)tileIntervalWorld} * worldToScreen}
-      , quadImage{}, sphereImage{}, unionImage{}
     {
       using namespace raycasting;
       using namespace raycasting::shapes;
@@ -340,7 +339,7 @@ namespace testing
             sphere,
             minLight,
             &directionalLights[0],
-            directionalLights.size());
+            (int)directionalLights.size());
           measureImageBounds(renderTempView, &minx, &miny, &width, &height);
           sphereAnchor.x = renderTempView.w / 2 - minx;
           sphereAnchor.y = renderTempView.h / 2 - miny;
@@ -355,7 +354,7 @@ namespace testing
             quad,
             minLight,
             &directionalLights[0],
-            directionalLights.size());
+            (int)directionalLights.size());
           measureImageBounds(renderTempView, &minx, &miny, &width, &height);
           quadAnchor.x = renderTempView.w / 2 - minx;
           quadAnchor.y = renderTempView.h / 2 - miny;
@@ -390,7 +389,7 @@ namespace testing
               frameBuffer.w / 2 + screenPosition.x,
               frameBuffer.h / 2 + screenPosition.y,
               quadImage->getUnsafeView(),
-              screenPosition.z);
+              (int16_t)screenPosition.z);
           }
 
           {
@@ -400,7 +399,7 @@ namespace testing
               frameBuffer.w / 2 + screenPosition.x,
               frameBuffer.h / 2 + screenPosition.y,
               sphereImage->getUnsafeView(),
-              screenPosition.z);
+              (int16_t)screenPosition.z);
           }
         }
     }
@@ -453,7 +452,7 @@ int main(int argc, char *argv[])
 
     constexpr auto angleInDegreesFromWidthToHeightRatio = [](int w, int h)
     {
-      const float ratio = (float)w / h;
+      const float ratio = (float)w / (float)h;
       return 90.f - glm::degrees(glm::atan(glm::sqrt(ratio * ratio - 1.f)));
     };
 
@@ -569,7 +568,7 @@ int main(int argc, char *argv[])
 
       auto tstart = clock::now();
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
-      auto elapsedmillis = (1.0 / 1000.0) * std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
+      auto elapsedmillis = (1.0 / 1000.0) * (double)std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
 
       SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
 

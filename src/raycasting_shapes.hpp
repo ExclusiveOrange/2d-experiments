@@ -73,7 +73,7 @@ namespace raycasting::shapes
       // sphere is wholly ahead of ray origin and emits a surface intersection
       Intersection intersection{.position = ray.origin + d * ray.unitDirection, .diffuse = diffuse, .distance = d};
       intersection.normal = glm::normalize(intersection.position - center);
-      return std::move(intersection);
+      return intersection;
     };
   }
 }
