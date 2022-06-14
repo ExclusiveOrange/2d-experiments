@@ -2,9 +2,6 @@
 
 #include "raycasting.hpp"
 
-// TODO: delete
-#include <iostream>
-
 namespace raycasting::shapes
 {
   static

@@ -67,7 +67,7 @@ namespace
   namespace defaults::window
   {
     constexpr const char *title = "2d-experiments";
-    constexpr const int width = 1200;
+    constexpr const int width = 1600;
     constexpr const int height = 900;
   }
 
@@ -164,7 +164,7 @@ namespace
     // do not pass a temporary SdlWindow
     SdlRenderer(SdlWindow &&) = delete;
 
-    SdlRenderer(const SdlWindow &window)
+    explicit SdlRenderer(const SdlWindow &window)
       : window{window}
       , renderer{SDL_CreateRenderer(window.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC)}
     {
@@ -230,7 +230,7 @@ namespace
         });
     }
 
-    void present() {SDL_RenderPresent(renderer.renderer);}
+    void present() const {SDL_RenderPresent(renderer.renderer);}
 
   private:
     const SdlRenderer &renderer;
@@ -319,7 +319,7 @@ namespace testing
 
       // objects to render
       const auto sphere = makeSphere(glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}), glm::vec3{0.f}, tileIntervalWorld * 0.38f);
-      const float halfIntervalPlusMargin = tileIntervalWorld * 0.48f + tileMarginWorld;
+      const float halfIntervalPlusMargin = tileIntervalWorld * 0.5f + tileMarginWorld;
       const auto quad = makeQuad(glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}), glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right);
       const auto csgUnion = makeUnion({sphere, quad});
 
@@ -397,26 +397,27 @@ namespace testing
           glm::ivec3 thisTileOffset{xyz * tileIntervalScreen};
           glm::ivec3 thisTilePosition{thisTileOffset + screenCoordsOfWorldCenter};
 
-          //{
-          //  glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
-          //  drawWithDepth(
-          //    frameBuffer,
-          //    frameBuffer.w / 2 + screenPosition.x,
-          //    frameBuffer.h / 2 + screenPosition.y,
-          //    quadImage->getUnsafeView(),
-          //    (int16_t)screenPosition.z);
-          //}
-          //
-          //{
-          //  glm::ivec3 screenPosition = thisTilePosition - sphereAnchor;
-          //  drawWithDepth(
-          //    frameBuffer,
-          //    frameBuffer.w / 2 + screenPosition.x,
-          //    frameBuffer.h / 2 + screenPosition.y,
-          //    sphereImage->getUnsafeView(),
-          //    (int16_t)screenPosition.z);
-          //}
-
+          if (xyz.x & 1 && xyz.y & 1)
+          {
+            glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
+            drawWithDepth(
+              frameBuffer,
+              frameBuffer.w / 2 + screenPosition.x,
+              frameBuffer.h / 2 + screenPosition.y,
+              quadImage->getUnsafeView(),
+              (int16_t)screenPosition.z);
+          }
+          else if (xyz.x & 2)
+          {
+            glm::ivec3 screenPosition = thisTilePosition - sphereAnchor;
+            drawWithDepth(
+              frameBuffer,
+              frameBuffer.w / 2 + screenPosition.x,
+              frameBuffer.h / 2 + screenPosition.y,
+              sphereImage->getUnsafeView(),
+              (int16_t)screenPosition.z);
+          }
+          else
           {
             glm::ivec3 screenPosition = thisTilePosition - unionAnchor;
             drawWithDepth(
@@ -489,9 +490,8 @@ int main(int argc, char *argv[])
     //    std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     //}
 
-    //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
-
-    constexpr float angleAboveHorizon = 30.f;
+    const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(16,9);
+    //constexpr float angleAboveHorizon = 30.f;
     constexpr float angleAroundVertical = 45.f;
 
     glm::mat3x3{glm::mat4x4{}};
@@ -595,6 +595,7 @@ int main(int argc, char *argv[])
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
       auto elapsedmillis = (1.0 / 1000.0) * (double)std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
 
+      // TODO: figure out how to get OBS Studio to find window when title changes continuously
       SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
 
       frameBuffers.present();

@@ -33,19 +33,12 @@ namespace raycasting
     float distance;
   };
 
-  struct Intersectable
-  {
-    virtual ~Intersectable() {}
-
-    virtual std::optional<Intersection> intersect(Ray ray) const = 0;
-  };
-
   struct DirectionalLight
   {
     DirectionalLight(glm::vec3 direction, glm::vec3 intensity)
       : ndirection{-direction}, intensity{intensity} {}
 
-    glm::vec3 calculate(glm::vec3 position, glm::vec3 normal) const
+    [[nodiscard]] glm::vec3 calculate(glm::vec3 position, glm::vec3 normal) const
     {
       return intensity * glm::dot(normal, ndirection);
     }
@@ -99,7 +92,7 @@ namespace raycasting
 
             // old way of calculating depth from minDepth, maxDepth
             //uint8_t depth = (uint8_t)glm::clamp((i->distance - minDepth) * rDepthRange, 0.f, 255.f);
-            uint8_t depth = (uint8_t)(127.f + glm::clamp(i->distance, -127.f, 128.f));
+            auto depth = uint8_t(127.f + glm::clamp(i->distance, -127.f, 128.f));
 
             drgb = (depth << 24) | (uint32_t(color.x) << 16) | (uint32_t(color.y) << 8) | uint32_t(color.z);
           }
