@@ -22,6 +22,7 @@
 // third party
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/color_space.hpp>
 #include <SDL.h>
 #include <SDL_image.h>
 
@@ -321,9 +322,9 @@ namespace testing
 
       std::cout << toString("TileRenderer: tileIntervalWorld(", tileIntervalWorld, "), tileMarginWorld(", tileMarginWorld, "), tileImageSize(", tileImageSize.x, " x ", tileImageSize.y, ")\n");
 
-      const Sphere sphere{glm::vec3{0.2f, 1.f, 0.2f}, glm::vec3{0.f, 0.f, -tileIntervalWorld * 0.2f}, tileIntervalWorld * 0.38f};
+      const Sphere sphere{glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}), glm::vec3{0.f, 0.f, -tileIntervalWorld * 0.2f}, tileIntervalWorld * 0.38f};
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.48f + tileMarginWorld;
-      const Quad quad{glm::vec3{1.f, 0.2f, 0.2f}, glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
+      const Quad quad{glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}), glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right};
       //const Intersectable &intersectable = quad;
 
       glm::vec3 minLight{0.2f};
