@@ -220,7 +220,7 @@ namespace
       cpuFrameBuffer->useWith(
         [&](const ViewOfCpuFrameBuffer &imageWithDepth)
         {
-          int imagePitch = imageWithDepth.w * sizeof(imageWithDepth.image[0]);
+          int imagePitch = imageWithDepth.w * (int)sizeof(imageWithDepth.image[0]);
 
           if (SDL_UpdateTexture(renderBufferTexture->texture, nullptr, imageWithDepth.image, imagePitch))
             throw error("SDL_UpdateTexture failed: ", SDL_GetError());
@@ -258,7 +258,7 @@ namespace
       if (lastRendererWidth != rendererWidth || lastRendererHeight != rendererHeight)
       {
         (lastRendererWidth = rendererWidth, lastRendererHeight = rendererHeight);
-        (scaledWidth = rendererWidth / scale, scaledHeight = rendererHeight / scale);
+        (scaledWidth = int((float)rendererWidth / scale), scaledHeight = int((float)rendererHeight / scale));
         allocateBuffers();
       }
     }
