@@ -14,6 +14,9 @@ drawSparseWithDepth(
   const int minsx = clipMin(destx, dest.w, src.w);
   const int maxsx = clipMax(destx, dest.w, src.w);
 
+  // on 9700k this is the fastest by far of the various draw...WithDepth functions,
+  // but I feel it could be faster yet, after all it hardly does anything.
+
   for (int y = minsy + src.rowGapsUp[minsy]; y < maxsy; y += 1 + src.rowGapsUp[y])
   {
     uint8_t *pcolGapsRight = src.colGapsRight + y * src.w;

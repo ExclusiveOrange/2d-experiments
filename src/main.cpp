@@ -25,12 +25,14 @@
 #include <SDL_image.h>
 
 // this project
+#include "copySubImageWithDepth.hpp"
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 #include "CpuSparseImageWithDepth.hpp"
 #include "drawSparseWithDepth.hpp"
 #include "drawWithDepth.hpp"
 #include "drawWithoutDepth.hpp"
+#include "measureImageBounds.hpp"
 #include "MovementVectors.hpp"
 #include "raycasting.hpp"
 #include "raycasting_shapes.hpp"
@@ -275,6 +277,8 @@ namespace testing
     std::optional<CpuImageWithDepth> tile0;
     std::optional<CpuSparseImageWithDepth> tile0Sparse;
 
+    glm::ivec2 tileAnchor;
+
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
       glm::vec3 tileMaxWorld{tileIntervalWorld * 0.5f + tileMarginWorld};
@@ -334,7 +338,20 @@ namespace testing
         &directionalLights[0],
         directionalLights.size());
 
-      tile0Sparse.emplace(tile0->getUnsafeView());
+      // set tile0Sparse to trimmed copy of rendered image
+      {
+        int minx, maxx, miny, maxy;
+        const ViewOfCpuImageWithDepth view = tile0->getUnsafeView();
+        measureImageBounds(view, &minx, &maxx, &miny, &maxy);
+
+        // set tile anchor to center of render area
+        tileAnchor.x = view.w / 2 - minx;
+        tileAnchor.y = view.h / 2 - miny;
+
+        CpuImageWithDepth trimmed{maxx - minx + 1, maxy - miny + 1};
+        copySubImageWithDepth(trimmed.getUnsafeView(), 0, 0, view, minx, miny, maxx - minx + 1, maxy - miny + 1);
+        tile0Sparse.emplace(trimmed.getUnsafeView());
+      }
 
       // TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
       // delete this
@@ -389,8 +406,8 @@ namespace testing
           //drawWithDepth(
           drawSparseWithDepth(
             frameBuffer,
-            frameBuffer.w / 2 + screenCoords.x - tileView.w / 2,
-            frameBuffer.h / 2 + screenCoords.y - tileView.h / 2,
+            frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
+            frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
             tileView,
             screenCoords.z);
         }

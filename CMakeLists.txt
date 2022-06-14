@@ -29,6 +29,7 @@ if (MSVC)
     message("MSVC")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast")
 elseif (GNU OR CLANG)
+    # TODO: doesn't detect either on Apple even though it is in fact using Clang on Apple
     message("GNU OR CLANG")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -ftree-vectorize -march=native")
 endif ()

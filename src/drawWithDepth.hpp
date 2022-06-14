@@ -4,6 +4,7 @@
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 
+// optimized but not for SIMD
 static void
 drawWithDepth(
   ViewOfCpuFrameBuffer dest, int destx, int desty,
@@ -27,7 +28,7 @@ drawWithDepth(
         if (int16_t sdepth = (sdrgb >> 24) + srcdepthbias, ddepth = pdestdepth[sx]; sdepth < ddepth)
         {
           // depth test passed: overwrite dest image and dest depth
-          pdestimage[sx] = 0xff000000 | (sdrgb & 0xffffff);
+          pdestimage[sx] = 0xff000000 | sdrgb;
           pdestdepth[sx] = sdepth;
         }
 }
