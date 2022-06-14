@@ -321,7 +321,7 @@ namespace testing
       const auto sphere = makeSphere(glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}), glm::vec3{0.f}, tileIntervalWorld * 0.38f);
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.48f + tileMarginWorld;
       const auto quad = makeQuad(glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}), glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right);
-      //const Union _union{std::vector<Intersectable>{{sphere, quad}}};
+      const auto csgUnion = makeUnion({sphere, quad});
 
       glm::vec3 minLight{0.2f};
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
@@ -361,6 +361,21 @@ namespace testing
           quadImage.emplace(width, height);
           copySubImageWithDepth(quadImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
         }
+
+        // union
+        {
+          camera.render(
+            renderTempView,
+            csgUnion,
+            minLight,
+            &directionalLights[0],
+            (int)directionalLights.size());
+          measureImageBounds(renderTempView, &minx, &miny, &width, &height);
+          unionAnchor.x = renderTempView.w / 2 - minx;
+          unionAnchor.y = renderTempView.h / 2 - miny;
+          unionImage.emplace(width, height);
+          copySubImageWithDepth(unionImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
+        }
       }
     }
 
@@ -382,23 +397,33 @@ namespace testing
           glm::ivec3 thisTileOffset{xyz * tileIntervalScreen};
           glm::ivec3 thisTilePosition{thisTileOffset + screenCoordsOfWorldCenter};
 
-          {
-            glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
-            drawWithDepth(
-              frameBuffer,
-              frameBuffer.w / 2 + screenPosition.x,
-              frameBuffer.h / 2 + screenPosition.y,
-              quadImage->getUnsafeView(),
-              (int16_t)screenPosition.z);
-          }
+          //{
+          //  glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
+          //  drawWithDepth(
+          //    frameBuffer,
+          //    frameBuffer.w / 2 + screenPosition.x,
+          //    frameBuffer.h / 2 + screenPosition.y,
+          //    quadImage->getUnsafeView(),
+          //    (int16_t)screenPosition.z);
+          //}
+          //
+          //{
+          //  glm::ivec3 screenPosition = thisTilePosition - sphereAnchor;
+          //  drawWithDepth(
+          //    frameBuffer,
+          //    frameBuffer.w / 2 + screenPosition.x,
+          //    frameBuffer.h / 2 + screenPosition.y,
+          //    sphereImage->getUnsafeView(),
+          //    (int16_t)screenPosition.z);
+          //}
 
           {
-            glm::ivec3 screenPosition = thisTilePosition - sphereAnchor;
+            glm::ivec3 screenPosition = thisTilePosition - unionAnchor;
             drawWithDepth(
               frameBuffer,
               frameBuffer.w / 2 + screenPosition.x,
               frameBuffer.h / 2 + screenPosition.y,
-              sphereImage->getUnsafeView(),
+              unionImage->getUnsafeView(),
               (int16_t)screenPosition.z);
           }
         }
