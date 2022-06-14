@@ -60,7 +60,7 @@ namespace
 
   namespace defaults::render
   {
-    constexpr const float scale = 2.f;
+    constexpr const float scale = 1.f;
     constexpr const char *scaleQuality = "nearest"; // see SDL_HINT_RENDER_SCALE_QUALITY in SDL_hints.h for other options
   }
 
@@ -353,6 +353,9 @@ namespace testing
 
         CpuImageWithDepth trimmed{maxx - minx + 1, maxy - miny + 1};
         copySubImageWithDepth(trimmed.getUnsafeView(), 0, 0, view, minx, miny, maxx - minx + 1, maxy - miny + 1);
+        // replace tile0 with trimmed version of itself
+        tile0.emplace(maxx - minx + 1, maxy - miny + 1);
+        copySubImageWithDepth(tile0->getUnsafeView(), 0, 0, trimmed.getUnsafeView(), 0, 0, maxx - minx + 1, maxy - miny + 1);
         tile0Sparse.emplace(trimmed.getUnsafeView());
       }
 
@@ -406,11 +409,11 @@ namespace testing
             glm::vec3 worldCoords{-screenCenterInWorld + thisTileOffset};
             glm::ivec3 screenCoords{worldCoords * worldToScreen};
 
-            //ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
-            ViewOfCpuSparseImageWithDepth tileView = tile0Sparse->getUnsafeView();
+            ViewOfCpuImageWithDepth tileView = tile0->getUnsafeView();
+            //ViewOfCpuSparseImageWithDepth tileView = tile0Sparse->getUnsafeView();
 
-            //drawWithDepth(
-            drawSparseWithDepth(
+            drawWithDepth(
+            //drawSparseWithDepth(
               frameBuffer,
               frameBuffer.w / 2 + screenCoords.x - tileAnchor.x,
               frameBuffer.h / 2 + screenCoords.y - tileAnchor.y,
@@ -481,8 +484,8 @@ int main(int argc, char *argv[])
 
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
 
-    constexpr float angleAboveHorizon = 30.f;
-    constexpr float angleAroundVertical = 30.f;
+    constexpr float angleAboveHorizon = 15.f;
+    constexpr float angleAroundVertical = 45.f;
 
     glm::mat3x3{glm::mat4x4{}};
 
