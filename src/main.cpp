@@ -484,7 +484,7 @@ int main(int argc, char *argv[])
 
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(3,2);
 
-    constexpr float angleAboveHorizon = 15.f;
+    constexpr float angleAboveHorizon = 30.f;
     constexpr float angleAroundVertical = 45.f;
 
     glm::mat3x3{glm::mat4x4{}};
