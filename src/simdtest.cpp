@@ -71,11 +71,19 @@ void simdtest()
   _mm256_storeu_si256((__m256i*)u16check_16, blendedshuffledlo);
   print("blendedshuffledlo", u16check_16);
 
-  __m128i lo128 = _mm256_extracti128_si256(blendedshuffledlo, 0);
-  __m128i hi128 = _mm256_extracti128_si256(blendedshuffledlo, 1);
+  __m256i permuted = _mm256_permute4x64_epi64(blendedshuffledlo, _MM_SHUFFLE(0, 0, 2, 0));
+  _mm256_storeu_si256((__m256i*)u16check_16, permuted);
+  print("permuted", u16check_16);
 
-  _mm_storel_epi64((__m128i*)&u16check_8[0], lo128);
-  _mm_storel_epi64((__m128i*)&u16check_8[4], hi128);
+  __m128i final16s = _mm256_extracti128_si256(permuted, 0);
+
+  _mm_store_si128((__m128i*)u16check_8, final16s);
+
+  //__m128i lo128 = _mm256_extracti128_si256(blendedshuffledlo, 0);
+  //__m128i hi128 = _mm256_extracti128_si256(blendedshuffledlo, 1);
+  //
+  //_mm_storel_epi64((__m128i*)&u16check_8[0], lo128);
+  //_mm_storel_epi64((__m128i*)&u16check_8[4], hi128);
 
   print("final u16check_8", u16check_8);
 
