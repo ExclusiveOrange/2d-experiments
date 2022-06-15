@@ -436,6 +436,15 @@ namespace testing
 
 int main(int argc, char *argv[])
 {
+  // TODO: DELETE
+  {
+    extern void simdtest();
+
+    simdtest();
+
+    return 0;
+  }
+
   try
   {
     Sdl sdl;

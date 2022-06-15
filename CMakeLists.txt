@@ -27,7 +27,7 @@ project(2d-experiments CXX)
 # enable full optimization
 if (MSVC)
     message("MSVC")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast /arch:AVX2")
 elseif (GNU OR CLANG)
     # TODO: doesn't detect either on Apple even though it is in fact using Clang on Apple
     message("GNU OR CLANG")
