@@ -67,7 +67,7 @@ namespace
   namespace defaults::window
   {
     constexpr const char *title = "2d-experiments";
-    constexpr const int width = 1600;
+    constexpr const int width = 1200;
     constexpr const int height = 900;
   }
 
@@ -490,9 +490,11 @@ int main(int argc, char *argv[])
     //    std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     //}
 
-    const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(16,9);
+    const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
     //constexpr float angleAboveHorizon = 30.f;
     constexpr float angleAroundVertical = 45.f;
+
+    std::cout << "angleAboveHorizon: " << angleAboveHorizon << ", angleAroundVertical: " << angleAroundVertical << std::endl;
 
     glm::mat3x3{glm::mat4x4{}};
 
