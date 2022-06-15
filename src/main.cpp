@@ -440,11 +440,11 @@ int main(int argc, char *argv[])
   {
     extern void simdtest1();
     extern void simdtest2();
+    extern void simdtest3();
 
-    glm::vec3 a, b;
-    auto q = glm::lessThan(a, b);
     //simdtest1();
-    simdtest2();
+    //simdtest2();
+    simdtest3();
 
     return 0;
   }
