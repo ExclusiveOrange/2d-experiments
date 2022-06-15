@@ -438,9 +438,13 @@ int main(int argc, char *argv[])
 {
   // TODO: DELETE
   {
-    extern void simdtest();
+    extern void simdtest1();
+    extern void simdtest2();
 
-    simdtest();
+    glm::vec3 a, b;
+    auto q = glm::lessThan(a, b);
+    //simdtest1();
+    simdtest2();
 
     return 0;
   }

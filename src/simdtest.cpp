@@ -8,6 +8,7 @@
 
 #endif
 
+#include <bitset>
 #include <iostream>
 
 using namespace std;
@@ -29,65 +30,101 @@ print(const char *name, auto &&a)
   cout << "}" << endl;
 }
 
-void simdtest()
+static
+void
+print_i16(const char *name, __m128i x)
 {
+  int16_t a[8];
+  _mm_storeu_si128((__m128i*)a, x);
+  print(name, a);
+}
 
-  // GOAL:
+static
+void
+print_u16(const char *name, __m128i x)
+{
+  uint16_t a[8];
+  _mm_storeu_si128((__m128i*)a, x);
+  print(name, a);
+}
+
+void simdtest1()
+{
+  // TEST 1 GOAL:
   // load 8 x uint32 values
   // convert to 8 x int16 values
   // store 8 x int16 values
+  // status:
+  //   _mm_packs_epi32 is the magic instruction to convert signed 32 bit to signed 16 bit;
+  //   should be very fast
+
+  // NOTE:
+  // just use 128 _mm_packs_epi32(128, 128)
 
   uint32_t u32vs[8];
-  uint32_t u32check[8];
-  uint16_t u16check_16[16];
-  uint16_t u16check_8[8];
+  int16_t i16check_8[8];
 
   for (int i = 0; i < 8; ++i)
     u32vs[i] = i;
 
-  __m256i a = _mm256_loadu_si256((__m256i*)u32vs);
+  __m128i u32a = _mm_loadu_si128((__m128i*)&u32vs[0]); // latency 1, throughput 0.5
+  __m128i u32b = _mm_loadu_si128((__m128i*)&u32vs[4]); // latency 1, throughput 0.5
+  __m128i s16 = _mm_packs_epi32(u32a, u32b); // latency 1, throughput 0.5
+  _mm_storeu_si128((__m128i*)i16check_8, s16); // latency 1, throughput 0.5
+  print_i16("s16", s16);
+  print("i16check_8", i16check_8);
+}
 
-  _mm256_storeu_si256((__m256i*)u32check, a);
-  print("a", u32check);
+void simdtest2()
+{
+  // TEST 2 GOAL:
+  //   compare 2 x int16[8] arrays element-wise
+  //   specifically want to know when a < b
 
-  _mm256_storeu_si256((__m256i*)u16check_16, a);
-  print("a as u16", u16check_16);
+  int16_t i16_a[8];
+  int16_t i16_b[8];
+  int16_t i16_c[8];
 
-  __m256i shuffledlo = _mm256_shufflelo_epi16(a, _MM_SHUFFLE(0,0,2,0));
-  // 0 1 _ _ _ _ _ _ 4 5 _ _ _ _ _ _
-  _mm256_storeu_si256((__m256i*)u16check_16, shuffledlo);
-  print("shuffledlo", u16check_16);
+  for (int i = 0; i < 8; ++i)
+  {
+    i16_a[i] = (int16_t)i;
+    //i16_b[i] = (int16_t)(7 - i);
+    i16_b[i] = (int16_t)(i - 1);
+    i16_c[i] = 0;
+  }
 
-  __m256i shuffledhi = _mm256_shufflehi_epi16(a, _MM_SHUFFLE(0,0,2,0));
-  // _ _ _ _ 2 3 _ _ _ _ _ _ 6 7 _ _
-  _mm256_storeu_si256((__m256i*)u16check_16, shuffledhi);
-  print("shuffledhi", u16check_16);
+  i16_b[3] = 4;
 
-  __m256i blendedshuffled = _mm256_blend_epi32(shuffledlo, shuffledhi, _MM_SHUFFLE(1,0,1,0));
-  _mm256_storeu_si256((__m256i*)u16check_16, blendedshuffled);
-  print("blendedshuffled", u16check_16);
+  __m128i a = _mm_loadu_si128((__m128i*)i16_a);
+  __m128i b = _mm_loadu_si128((__m128i*)i16_b);
 
-  __m256i blendedshuffledlo = _mm256_shuffle_epi32(blendedshuffled, _MM_SHUFFLE(0, 0, 2, 0));
-  _mm256_storeu_si256((__m256i*)u16check_16, blendedshuffledlo);
-  print("blendedshuffledlo", u16check_16);
+  print_i16("a", a);
+  print_i16("b", b);
 
-  __m256i permuted = _mm256_permute4x64_epi64(blendedshuffledlo, _MM_SHUFFLE(0, 0, 2, 0));
-  _mm256_storeu_si256((__m256i*)u16check_16, permuted);
-  print("permuted", u16check_16);
+  // altb[i] = a[i] < b[i] ? 0xFFFF : 0
+  __m128i altb = _mm_cmpgt_epi16(b, a);
+  print_u16("a < b", altb);
 
-  __m128i final16s = _mm256_extracti128_si256(permuted, 0);
+  // NOTE: sounds like _mm_maskmoveu_si128 (maskmovdqu) has bad performance in modern times,
+  // so the common fast solution seems to be to load the dest, do a blend, and store the result back in dest
 
-  _mm_store_si128((__m128i*)u16check_8, final16s);
+  __m128i c = _mm_loadu_si128((__m128i*)i16_c);
 
-  //__m128i lo128 = _mm256_extracti128_si256(blendedshuffledlo, 0);
-  //__m128i hi128 = _mm256_extracti128_si256(blendedshuffledlo, 1);
-  //
-  //_mm_storel_epi64((__m128i*)&u16check_8[0], lo128);
-  //_mm_storel_epi64((__m128i*)&u16check_8[4], hi128);
+  if (_mm_testz_si128(altb, _mm_set1_epi64x(-1)))
+  {
+    cout << "all a >= b" << endl;
+    return;
+  }
 
-  print("final u16check_8", u16check_8);
+  // (int16)a_or_c[i] = a < b ? a[i] : c[i]
+  __m128i a_or_c = _mm_blendv_epi8(c, a, altb);
+
+  print_i16("a_or_c", a_or_c);
 
 
-  cout << "simdtest()" << endl;
+  // ^ this mask is 16 bits but since it's for epi8 instead of epi16, pairs are duplicates
+  // so want 8 bit mask from this somehow...
+
+
 
 }
