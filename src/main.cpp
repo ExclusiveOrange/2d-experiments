@@ -441,10 +441,12 @@ int main(int argc, char *argv[])
     extern void simdtest1();
     extern void simdtest2();
     extern void simdtest3();
+    extern void simdtest4(int16_t);
 
     //simdtest1();
     //simdtest2();
-    simdtest3();
+    //simdtest3();
+    simdtest4(-15000);
 
     return 0;
   }
