@@ -26,12 +26,14 @@ project(2d-experiments CXX)
 
 # enable full optimization
 if (MSVC)
+    # NOTE: clang-cl also detected as MSVC which is not ideal because it supports different arguments
     message("MSVC")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast /arch:AVX2")
-elseif (GNU OR CLANG)
-    # TODO: doesn't detect either on Apple even though it is in fact using Clang on Apple
-    message("GNU OR CLANG")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ffast-math -ftree-vectorize -march=native")
+elseif (GNU OR CLANG OR APPLE)
+    # NOTE: APPLE not detected as CLANG, even though it is using clang
+    message("GNU OR CLANG OR APPLE")
+    # NOTE: not sure if -mcpu=apple-m1 has any effect, it doesn't seem to affect performance of the compiled executable
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -fno-trapping-math -fno-math-errno -fno-signed-zeros -ftree-vectorize")
 endif ()
 
 # enable exceptions (off by default on clang-cl at least, which unfortunately detects as MSVC)
