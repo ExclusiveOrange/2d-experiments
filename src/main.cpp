@@ -279,8 +279,8 @@ namespace testing
     const glm::mat3 worldToScreen;
     const glm::imat3x3 tileIntervalScreen;
 
-    std::optional<CpuImageWithDepth> quadImage{}, sphereImage{}, unionImage{};
-    glm::ivec3 quadAnchor{}, sphereAnchor{}, unionAnchor{};
+    std::optional<CpuImageWithDepth> quadImage{}, sphereImage{}, unionImage{}, texturedSphereImage{};
+    glm::ivec3 quadAnchor{}, sphereAnchor{}, unionAnchor{}, textureSphereAnchor{};
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -382,6 +382,12 @@ namespace testing
 
     void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::vec3 screenCenterInWorld)
     {
+      // TODO: could probably clear framebuffer outside of this function,
+      // and could use more than one framebuffer,
+      // and could use another thread to clear framebuffers so that there is always a framebuffer ready to go.
+      // That would make a significant performance improvement since clearing seems to take up to half of the total time
+      // even in a scene with a lot of drawing and overlap.
+
       frameBuffer.clear(0xff000000, 0x7fff);
 
       glm::ivec3 screenCoordsOfWorldCenter{-screenCenterInWorld * worldToScreen};
@@ -395,7 +401,6 @@ namespace testing
       const double microsPerCycle = 1000000.0 / waveFrequency;
       const auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - startTime).count();
       const auto phase = (double)(elapsedMicros % (decltype(elapsedMicros))(microsPerCycle)) / microsPerCycle;
-      //const double wavePosition = glm::sin(phase * glm::pi<double>() * 2.0);
       const float waveAmplitudeWorldUnits = 50.f;
 
       int radiusInTiles = 30;
@@ -408,7 +413,7 @@ namespace testing
 
           float wavePhaseOffset = glm::length(glm::vec2(xyz.x, xyz.y) / (float)radiusInTiles);
 
-          glm::vec3 waveOffset{0.f, 0.f, waveAmplitudeWorldUnits * glm::sin((phase + wavePhaseOffset) * glm::pi<double>() * 2.0)};
+          glm::vec3 waveOffset = glm::vec3{0.0f, 0.f, 2.f} * waveAmplitudeWorldUnits * (float)glm::sin((-phase + wavePhaseOffset) * glm::pi<double>() * 2.0);
           glm::ivec3 waveOffsetScreen{waveOffset * worldToScreen};
 
           if (xyz.x & 1 && xyz.y & 1)
