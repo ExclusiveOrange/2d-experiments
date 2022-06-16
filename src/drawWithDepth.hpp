@@ -39,15 +39,22 @@ drawWithDepth(
   {
     for (size_t i = 0; i < vecWidth; i += simdSize)
     {
+      // ERROR: dest values are being wrongly overwritten with black in some cases;
+      // probably making a mistake with the masks somewhere
+
       __m256i src_drgb = _mm256_loadu_si256((__m256i*)(psrc + i));
 
       __m256i src_depth_unbiased_32 = _mm256_srli_epi32(src_drgb, 24); // src_drgb >> 24
-      __m256i src_depth_255_mask = _mm256_cmpeq_epi32(src_depth_unbiased_32, u32_0x000000ff);
+      __m256i src_depth_255_mask_32 = _mm256_cmpeq_epi32(src_depth_unbiased_32, u32_0x000000ff);
 
-      if (_mm256_testc_si256(src_depth_255_mask, _mm256_set1_epi64x(-1)))
+      if (_mm256_testc_si256(src_depth_255_mask_32, _mm256_set1_epi64x(-1)))
         continue; // all src_depth == 255 (transparent)
 
       __m128i dst_depth = _mm_loadu_si128((__m128i*)(pdestdepth + i));
+
+      __m128i src_depth_255_mask_32_1 = _mm256_extracti128_si256(src_depth_255_mask_32, 1);
+      __m128i src_depth_255_mask_32_0 = _mm256_castsi256_si128(src_depth_255_mask_32);
+      __m128i src_depth_255_mask_16 = _mm_packs_epi16(src_depth_255_mask_32_0, src_depth_255_mask_32_1);
 
       __m128i src_depth_unbiased_32_1 = _mm256_extracti128_si256(src_depth_unbiased_32, 1);
       __m128i src_depth_unbiased_32_0 = _mm256_castsi256_si128(src_depth_unbiased_32);
@@ -60,10 +67,12 @@ drawWithDepth(
 
       __m256i dst_argb = _mm256_loadu_si256((__m256i*)(pdestimage + i));
 
-      __m128i src_depth_or_dst_depth = _mm_blendv_epi8(dst_depth, src_depth_biased, src_depth_lt_dst_depth_mask);
+      __m128i src_final_mask_16 = _mm_andnot_si128(src_depth_255_mask_16, src_depth_lt_dst_depth_mask);
+
+      __m128i src_depth_or_dst_depth = _mm_blendv_epi8(dst_depth, src_depth_biased, src_final_mask_16);
       __m256i src_argb = _mm256_or_si256(src_drgb, u32_0xff000000);
-      __m256i src_depth_lt_dst_depth_mask_256 = _mm256_cvtepi16_epi32(src_depth_lt_dst_depth_mask);
-      __m256i src_argb_or_dst_argb = _mm256_blendv_epi8(dst_argb, src_argb, src_depth_lt_dst_depth_mask_256);
+      __m256i src_final_mask_32 = _mm256_cvtepi16_epi32(src_final_mask_16);
+      __m256i src_argb_or_dst_argb = _mm256_blendv_epi8(dst_argb, src_argb, src_final_mask_32);
 
       _mm_storeu_si128((__m128i*)(pdestdepth + i), src_depth_or_dst_depth);
       _mm256_storeu_si256((__m256i*)(pdestimage + i), src_argb_or_dst_argb);

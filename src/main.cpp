@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
     //}
 
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
-    constexpr float angleAboveHorizon = 15.f;
+    constexpr float angleAboveHorizon = 5.f;
     constexpr float angleAroundVertical = 45.f;
 
     std::cout << "angleAboveHorizon: " << angleAboveHorizon << ", angleAroundVertical: " << angleAroundVertical << std::endl;
