@@ -36,6 +36,11 @@ namespace gradient
       pointsWithDiffs[i] = Point{.v = points[i].second, .t = points[i].first, .recipDiffToNext = (diff != 0.f) ? 1.f / diff : 0.f};
     }
 
+    {
+      const std::pair<float, V> &lastPoint = points.back();
+      pointsWithDiffs[points.size() - 1] = Point{.v = lastPoint.second, .t = lastPoint.first, .recipDiffToNext = 0.f};
+    }
+
     return [points = std::move(pointsWithDiffs)]
       (float t) -> V
     {

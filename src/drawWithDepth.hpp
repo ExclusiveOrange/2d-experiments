@@ -27,8 +27,8 @@ drawWithDepth(
   // SIMD specials
   constexpr size_t simdSize = 8;
   const size_t vecWidth = width - width % simdSize;
-  const __m256i u32_0x000000ff = _mm256_set1_epi32(0x000000ff);
-  const __m256i u32_0xff000000 = _mm256_set1_epi32(0xff000000);
+  const __m256i u32_0x000000ff = _mm256_set1_epi32(0x000000ff); // to compare 8 bit depth from source with 255 after >> 24
+  const __m256i u32_0xff000000 = _mm256_set1_epi32(0xff << 24); // sets alpha channel to 255 when storing src to dest image
   const __m128i src_depth_bias = _mm_set1_epi16(srcdepthbias);
 
   // pre-calculate fixed pointer offsets

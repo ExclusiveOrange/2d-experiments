@@ -35,6 +35,7 @@
 #include "gradient.hpp"
 #include "measureImageBounds.hpp"
 #include "MovementVectors.hpp"
+#include "noisyDiffuse.hpp"
 #include "raycasting.hpp"
 #include "raycasting_csg.hpp"
 #include "raycasting_shapes.hpp"
@@ -280,7 +281,7 @@ namespace testing
     const glm::imat3x3 tileIntervalScreen;
 
     std::optional<CpuImageWithDepth> quadImage{}, sphereImage{}, unionImage{}, texturedSphereImage{};
-    glm::ivec3 quadAnchor{}, sphereAnchor{}, unionAnchor{}, textureSphereAnchor{};
+    glm::ivec3 quadAnchor{}, sphereAnchor{}, unionAnchor{}, texturedSphereAnchor{};
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -311,18 +312,46 @@ namespace testing
       , worldToScreen{worldToScreen}
       , tileIntervalScreen{glm::mat3{(float)tileIntervalWorld} * worldToScreen}
     {
-      using namespace raycasting;
+      using namespace gradient;
+      using namespace noisyDiffuse;
       using namespace raycasting::shapes;
+      using namespace raycasting;
 
       // temporary image for raycasting
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
       CpuImageWithDepth renderTemp{tileImageSize.x, tileImageSize.y};
 
       // objects to render
-      const auto sphere = makeSphere(glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}), glm::vec3{0.f}, tileIntervalWorld * 0.38f);
+      const auto sphere = makeSphere(
+        glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}),
+        glm::vec3{0.f},
+        tileIntervalWorld * 0.38f);
+
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.5f + tileMarginWorld;
-      const auto quad = makeQuad(glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}), glm::vec3{0.f}, halfIntervalPlusMargin * forward, halfIntervalPlusMargin * right);
+      const auto quad = makeQuad(
+        glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}),
+        glm::vec3{0.f},
+        halfIntervalPlusMargin * forward,
+        halfIntervalPlusMargin * right);
+
       const auto csgUnion = makeUnion({sphere, quad});
+
+      auto gradient = makeGradient(
+        std::vector<std::pair<float, glm::vec3>>
+          {
+            {0.f, {1.f, 0.5f, 0.f}},
+            {1.f, {0.f, 0.5f, 1.f}}
+          });
+
+      auto noisyDiffuse = makeNoisyDiffuse(gradient);
+
+      const auto texturedSphere = makeSphere(
+        [=](const glm::vec3 x)
+        {
+          return noisyDiffuse(x * 0.1f);
+        },
+        glm::vec3{0.f},
+        tileIntervalWorld * 0.38f);
 
       glm::vec3 minLight{0.2f};
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
@@ -377,6 +406,21 @@ namespace testing
           unionImage.emplace(width, height);
           copySubImageWithDepth(unionImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
         }
+
+        // textured sphere
+        {
+          camera.render(
+            renderTempView,
+            texturedSphere,
+            minLight,
+            &directionalLights[0],
+            (int)directionalLights.size());
+          measureImageBounds(renderTempView, &minx, &miny, &width, &height);
+          texturedSphereAnchor.x = renderTempView.w / 2 - minx;
+          texturedSphereAnchor.y = renderTempView.h / 2 - miny;
+          texturedSphereImage.emplace(width, height);
+          copySubImageWithDepth(texturedSphereImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
+        }
       }
     }
 
@@ -413,7 +457,7 @@ namespace testing
 
           float wavePhaseOffset = glm::length(glm::vec2(xyz.x, xyz.y) / (float)radiusInTiles);
 
-          glm::vec3 waveOffset = glm::vec3{0.0f, 0.f, 2.f} * waveAmplitudeWorldUnits * (float)glm::sin((-phase + wavePhaseOffset) * glm::pi<double>() * 2.0);
+          glm::vec3 waveOffset = glm::vec3{0.0f, 0.f, 1.f} * waveAmplitudeWorldUnits * (float)glm::sin((-phase + wavePhaseOffset) * glm::pi<double>() * 2.0);
           glm::ivec3 waveOffsetScreen{waveOffset * worldToScreen};
 
           if (xyz.x & 1 && xyz.y & 1)
@@ -448,12 +492,12 @@ namespace testing
                 (int16_t)screenPosition.z);
             }
             {
-              glm::ivec3 screenPosition = thisTilePosition - sphereAnchor + waveOffsetScreen;
+              glm::ivec3 screenPosition = thisTilePosition - texturedSphereAnchor + waveOffsetScreen;
               drawWithDepth(
                 frameBuffer,
                 frameBuffer.w / 2 + screenPosition.x,
                 frameBuffer.h / 2 + screenPosition.y,
-                sphereImage->getUnsafeView(),
+                texturedSphereImage->getUnsafeView(),
                 (int16_t)screenPosition.z);
             }
             //glm::ivec3 screenPosition = thisTilePosition - unionAnchor;
