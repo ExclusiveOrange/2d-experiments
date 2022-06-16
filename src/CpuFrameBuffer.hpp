@@ -14,8 +14,7 @@ struct ViewOfCpuFrameBuffer
 
   void clear(uint32_t argbClearValue = 0xff000000, int16_t depthClearValue = 0) const
   {
-    // 2022.06.15 Atlee: Tested SIMD with 256 bit unaligned fills and it was a little slower than what the compiler generates.
-    // Not sure if aligned fills would be faster but it isn't supposed to make a difference on modern CPUs.
+    // 2022.06.15 Atlee: std::fill_n seems to be the fastest way to do this at least on MSVC, which is faster than clang-cl here.
     std::fill_n(image, w * h, argbClearValue);
     std::fill_n(depth, w * h, depthClearValue);
   }

@@ -12,6 +12,7 @@ drawWithDepth(
   ViewOfCpuImageWithDepth src, int16_t srcdepthbias)
 {
   // 2022.06.15 Atlee: This handwritten SIMD version is well more than twice as fast as the manually optimized non-SIMD version.
+  // There is probably more room for improvement.
 
   const int minsy = clipMin(desty, dest.h, src.h);
   const int maxsy = clipMax(desty, dest.h, src.h);
@@ -39,9 +40,6 @@ drawWithDepth(
   {
     for (size_t i = 0; i < vecWidth; i += simdSize)
     {
-      // ERROR: dest values are being wrongly overwritten with black in some cases;
-      // probably making a mistake with the masks somewhere
-
       __m256i src_drgb = _mm256_loadu_si256((__m256i*)(psrc + i));
 
       __m256i src_depth_unbiased_32 = _mm256_srli_epi32(src_drgb, 24); // src_drgb >> 24

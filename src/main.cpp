@@ -32,6 +32,7 @@
 #include "CpuImageWithDepth.hpp"
 #include "drawWithDepth.hpp"
 #include "drawWithoutDepth.hpp"
+#include "gradient.hpp"
 #include "measureImageBounds.hpp"
 #include "MovementVectors.hpp"
 #include "raycasting.hpp"
@@ -389,6 +390,14 @@ namespace testing
       // given that the camera angle hasn't been set in stone yet so the formula should be generalized for now
       // Probably could use flood-fill where a tile is a candidate if it overlaps the screen.
 
+      static auto startTime = clock::now();
+      const double waveFrequency = 1.0 / 3.0;
+      const double microsPerCycle = 1000000.0 / waveFrequency;
+      const auto elapsedMicros = std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - startTime).count();
+      const auto phase = (double)(elapsedMicros % (decltype(elapsedMicros))(microsPerCycle)) / microsPerCycle;
+      //const double wavePosition = glm::sin(phase * glm::pi<double>() * 2.0);
+      const float waveAmplitudeWorldUnits = 50.f;
+
       int radiusInTiles = 30;
 
       for (glm::ivec3 xyz{0.f, -radiusInTiles, 0.f}; xyz.y < radiusInTiles; ++xyz.y)
@@ -396,6 +405,11 @@ namespace testing
         {
           glm::ivec3 thisTileOffset{xyz * tileIntervalScreen};
           glm::ivec3 thisTilePosition{thisTileOffset + screenCoordsOfWorldCenter};
+
+          float wavePhaseOffset = glm::length(glm::vec2(xyz.x, xyz.y) / (float)radiusInTiles);
+
+          glm::vec3 waveOffset{0.f, 0.f, waveAmplitudeWorldUnits * glm::sin((phase + wavePhaseOffset) * glm::pi<double>() * 2.0)};
+          glm::ivec3 waveOffsetScreen{waveOffset * worldToScreen};
 
           if (xyz.x & 1 && xyz.y & 1)
           {
@@ -409,7 +423,7 @@ namespace testing
           }
           else if (xyz.x & 2)
           {
-            glm::ivec3 screenPosition = thisTilePosition - sphereAnchor;
+            glm::ivec3 screenPosition = thisTilePosition - sphereAnchor + waveOffsetScreen;
             drawWithDepth(
               frameBuffer,
               frameBuffer.w / 2 + screenPosition.x,
@@ -419,13 +433,31 @@ namespace testing
           }
           else
           {
-            glm::ivec3 screenPosition = thisTilePosition - unionAnchor;
-            drawWithDepth(
-              frameBuffer,
-              frameBuffer.w / 2 + screenPosition.x,
-              frameBuffer.h / 2 + screenPosition.y,
-              unionImage->getUnsafeView(),
-              (int16_t)screenPosition.z);
+            {
+              glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
+              drawWithDepth(
+                frameBuffer,
+                frameBuffer.w / 2 + screenPosition.x,
+                frameBuffer.h / 2 + screenPosition.y,
+                quadImage->getUnsafeView(),
+                (int16_t)screenPosition.z);
+            }
+            {
+              glm::ivec3 screenPosition = thisTilePosition - sphereAnchor + waveOffsetScreen;
+              drawWithDepth(
+                frameBuffer,
+                frameBuffer.w / 2 + screenPosition.x,
+                frameBuffer.h / 2 + screenPosition.y,
+                sphereImage->getUnsafeView(),
+                (int16_t)screenPosition.z);
+            }
+            //glm::ivec3 screenPosition = thisTilePosition - unionAnchor;
+            //drawWithDepth(
+            //  frameBuffer,
+            //  frameBuffer.w / 2 + screenPosition.x,
+            //  frameBuffer.h / 2 + screenPosition.y,
+            //  unionImage->getUnsafeView(),
+            //  (int16_t)screenPosition.z);
           }
         }
     }
@@ -465,18 +497,7 @@ int main(int argc, char *argv[])
 
     //----------------------------------------------------------------------------------------------------------------------
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
-    //auto testRenderer =
-    //  [](const ViewOfCpuFrameBuffer &imageWithDepth)
-    //  {
-    //    for (int y = 0; y < imageWithDepth.h; ++y)
-    //      for (int x = 0; x < imageWithDepth.w; ++x)
-    //      {
-    //        uint32_t p = (0xFF000000) | ((x & y & 255) << 16) | ((x & ~y & 255) << 8) | (~x & ~y & 255);
-    //        imageWithDepth.image[y * imageWithDepth.w + x] = p;
-    //      }
-    //  };
 
-    // TEMPORARY: prepare test sprite / tile
     raycasting::OrthogonalCamera camera{};
 
     // ANGLES
@@ -505,8 +526,8 @@ int main(int argc, char *argv[])
     //    std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     //}
 
-    const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
-    //constexpr float angleAboveHorizon = 45.f;
+    //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
+    constexpr float angleAboveHorizon = 25.f;
     constexpr float angleAroundVertical = 45.f;
 
     std::cout << "angleAboveHorizon: " << angleAboveHorizon << ", angleAroundVertical: " << angleAroundVertical << std::endl;
@@ -518,16 +539,7 @@ int main(int argc, char *argv[])
     camera.xstep = raycasting::right * cameraRotation; // at angle 0 the camera +x is world right
     camera.ystep = raycasting::up * cameraRotation; // at angle 0 the camera +y is world up
 
-    // TODO: delete
-    // camera math debugging
-    {
-      std::cout
-        << "camera.normal: " << camera.normal << "\n"
-        << "camera.xstep: " << camera.xstep << "\n"
-        << "camera.ystep: " << camera.ystep << "\n";
-    }
-
-    // because of my choice for world and camera coordinates, it is necessary to swap y and z in the worldToScreen transform here to get the expected results elsewhere
+    // because of my choice for world and camera axes, it is necessary to swap y and z in the worldToScreen transform here to get the expected results elsewhere
     glm::mat3 worldToScreen = glm::inverse(cameraRotation);
     std::swap(worldToScreen[1], worldToScreen[2]);
     glm::mat3 screenToWorld = glm::inverse(worldToScreen);
@@ -543,7 +555,7 @@ int main(int argc, char *argv[])
 
     struct KeyStates
     {
-      uint8_t up{}, down{}, left{}, right{}; // count of time this action is currently active (in case multiple keys are bound to the same action)
+      uint8_t up{}, down{}, left{}, right{}; // count of times this action is currently active (in case multiple keys are bound to the same action)
     } keyStates;
 
     std::unordered_map<SDL_Keycode, uint8_t *> keyToState
