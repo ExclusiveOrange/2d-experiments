@@ -437,19 +437,19 @@ namespace testing
 int main(int argc, char *argv[])
 {
   // TODO: DELETE
-  {
-    extern void simdtest1();
-    extern void simdtest2();
-    extern void simdtest3();
-    extern void simdtest4(int16_t);
-
-    //simdtest1();
-    //simdtest2();
-    //simdtest3();
-    simdtest4(0);
-
-    return 0;
-  }
+  //{
+  //  extern void simdtest1();
+  //  extern void simdtest2();
+  //  extern void simdtest3();
+  //  extern void simdtest4(int16_t);
+  //
+  //  //simdtest1();
+  //  //simdtest2();
+  //  //simdtest3();
+  //  simdtest4(0);
+  //
+  //  return 0;
+  //}
 
   try
   {
@@ -505,8 +505,8 @@ int main(int argc, char *argv[])
     //    std::cout << "ratio: " << ratio.w << "/" << ratio.h << " angle: " << angleInDegreesFromWidthToHeightRatio(ratio.w, ratio.h) << std::endl;
     //}
 
-    const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
-    //constexpr float angleAboveHorizon = 30.f;
+    //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
+    constexpr float angleAboveHorizon = 15.f;
     constexpr float angleAroundVertical = 45.f;
 
     std::cout << "angleAboveHorizon: " << angleAboveHorizon << ", angleAroundVertical: " << angleAroundVertical << std::endl;
