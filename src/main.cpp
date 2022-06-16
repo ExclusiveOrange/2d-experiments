@@ -39,8 +39,10 @@
 #include "noisyDiffuse.hpp"
 #include "raycasting/cameras/Orthogonal.hpp"
 #include "raycasting/csg/makeUnion.hpp"
+#include "raycasting/shapes/makeCone.hpp"
 #include "raycasting/shapes/makeQuad.hpp"
 #include "raycasting/shapes/makeSphere.hpp"
+#include "raycasting/transform/translate.hpp"
 
 // utility
 #include "glmprint.hpp"
@@ -275,15 +277,15 @@ namespace testing
 {
   class TileRenderer : NoCopyNoMove
   {
-    static constexpr int tileIntervalWorld = 100;
+    static constexpr int tileIntervalWorld = 200;
     static constexpr int tileMarginWorld = 1;
 
     const glm::mat3 screenToWorld;
     const glm::mat3 worldToScreen;
     const glm::imat3x3 tileIntervalScreen;
 
-    std::optional<CpuImageWithDepth> quadImage{}, sphereImage{}, unionImage{}, texturedSphereImage{};
-    glm::ivec3 quadAnchor{}, sphereAnchor{}, unionAnchor{}, texturedSphereAnchor{};
+    std::optional<CpuImageWithDepth> quadImage{}, coneImage{}, unionImage{}, texturedSphereImage{};
+    glm::ivec3 quadAnchor{}, coneAnchor{}, unionAnchor{}, texturedSphereAnchor{};
 
     static glm::ivec2 calculateTileScreenSize(glm::mat3 worldToScreen)
     {
@@ -320,16 +322,24 @@ namespace testing
       using namespace raycasting;
       using namespace raycasting::csg;
       using namespace raycasting::shapes;
+      using namespace raycasting::transform;
 
       // temporary image for raycasting
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
       CpuImageWithDepth renderTemp{tileImageSize.x, tileImageSize.y};
 
       // objects to render
-      const auto sphere = makeSphere(
-        glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}),
-        glm::vec3{0.f},
-        tileIntervalWorld * 0.38f);
+      //const auto sphere = makeSphere(
+      //  glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}),
+      //  glm::vec3{0.f},
+      //  tileIntervalWorld * 0.38f);
+      const auto cone =
+        translate(
+          makeCone(
+            glm::rgbColor(glm::vec3{98.f, 0.8f, 0.76f}),
+            -tileIntervalWorld * 0.38f,
+            tileIntervalWorld * 0.38f),
+          glm::vec3{0.f, 0.f, tileIntervalWorld * 0.5});
 
       auto dirtAndGrass =
         makeNoisyDiffuse(
@@ -349,10 +359,10 @@ namespace testing
         halfIntervalPlusMargin * forward,
         halfIntervalPlusMargin * right);
 
-      const auto csgUnion = makeUnion({sphere, quad});
+      //const auto csgUnion = makeUnion({sphere, quad});
 
       glm::vec3 minLight{0.2f};
-      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
+      std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + down), glm::vec3{1.f, 1.f, 1.f}}};
 
       // render and trim tile images
       {
@@ -360,19 +370,19 @@ namespace testing
 
         ViewOfCpuImageWithDepth renderTempView = renderTemp.getUnsafeView();
 
-        // sphere
+        // cone
         {
           camera.render(
             renderTempView,
-            sphere,
+            cone,
             minLight,
             &directionalLights[0],
             (int)directionalLights.size());
           measureImageBounds(renderTempView, &minx, &miny, &width, &height);
-          sphereAnchor.x = renderTempView.w / 2 - minx;
-          sphereAnchor.y = renderTempView.h / 2 - miny;
-          sphereImage.emplace(width, height);
-          copySubImageWithDepth(sphereImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
+          coneAnchor.x = renderTempView.w / 2 - minx;
+          coneAnchor.y = renderTempView.h / 2 - miny;
+          coneImage.emplace(width, height);
+          copySubImageWithDepth(coneImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
         }
 
         // quad
@@ -392,19 +402,19 @@ namespace testing
         }
 
         // union
-        {
-          camera.render(
-            renderTempView,
-            csgUnion,
-            minLight,
-            &directionalLights[0],
-            (int)directionalLights.size());
-          measureImageBounds(renderTempView, &minx, &miny, &width, &height);
-          unionAnchor.x = renderTempView.w / 2 - minx;
-          unionAnchor.y = renderTempView.h / 2 - miny;
-          unionImage.emplace(width, height);
-          copySubImageWithDepth(unionImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
-        }
+        //{
+        //  camera.render(
+        //    renderTempView,
+        //    csgUnion,
+        //    minLight,
+        //    &directionalLights[0],
+        //    (int)directionalLights.size());
+        //  measureImageBounds(renderTempView, &minx, &miny, &width, &height);
+        //  unionAnchor.x = renderTempView.w / 2 - minx;
+        //  unionAnchor.y = renderTempView.h / 2 - miny;
+        //  unionImage.emplace(width, height);
+        //  copySubImageWithDepth(unionImage->getUnsafeView(), 0, 0, renderTempView, minx, miny, width, height);
+        //}
 
         // textured sphere
         {
@@ -485,12 +495,12 @@ namespace testing
 
           if (xyz.x & 2)
           {
-            glm::ivec3 screenPosition = thisTilePosition - sphereAnchor + waveOffsetScreen;
+            glm::ivec3 screenPosition = thisTilePosition - coneAnchor + waveOffsetScreen;
             drawWithDepth(
               frameBuffer,
               frameBuffer.w / 2 + screenPosition.x,
               frameBuffer.h / 2 + screenPosition.y,
-              sphereImage->getUnsafeView(),
+              coneImage->getUnsafeView(),
               (int16_t)screenPosition.z);
           }
           else

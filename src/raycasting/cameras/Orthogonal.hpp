@@ -37,7 +37,7 @@ namespace raycasting::cameras
       uint32_t defaultDrgb = 0xff000000)
     const
     {
-      Ray ray{.unitDirection = this->normal};
+      Ray ray{.direction = this->normal};
 
       for (int y = 0; y < destImage.h; ++y)
       {

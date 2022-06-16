@@ -6,6 +6,7 @@ namespace raycasting
 {
   struct Ray
   {
-    glm::vec3 origin, unitDirection;
+    union { glm::vec3 origin, o; };
+    union { glm::vec3 direction, d; };
   };
 }

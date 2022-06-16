@@ -26,7 +26,7 @@ namespace raycasting::shapes
       auto square = [](auto x) {return x * x;};
 
       const glm::vec3 originMinusCenter = ray.origin - center;
-      const float ray_dot_originMinusCenter = glm::dot(ray.unitDirection, originMinusCenter);
+      const float ray_dot_originMinusCenter = glm::dot(ray.direction, originMinusCenter);
 
       float insideRadical = square(ray_dot_originMinusCenter) - glm::dot(originMinusCenter, originMinusCenter) + sqradius;
 
@@ -39,7 +39,7 @@ namespace raycasting::shapes
       float d = outsideRadical - sqrtInsideRadical;
 
       // sphere is wholly ahead of ray origin and emits a surface intersection
-      Intersection intersection{.position = ray.origin + d * ray.unitDirection, .diffuse = diffuse, .distance = d};
+      Intersection intersection{.position = ray.origin + d * ray.direction, .diffuse = diffuse, .distance = d};
       intersection.normal = glm::normalize(intersection.position - center);
       return intersection;
     };
@@ -59,7 +59,7 @@ namespace raycasting::shapes
       // solve for d
 
       const glm::vec3 originMinusCenter = ray.origin - center;
-      const float ray_dot_originMinusCenter = glm::dot(ray.unitDirection, originMinusCenter);
+      const float ray_dot_originMinusCenter = glm::dot(ray.direction, originMinusCenter);
 
       float insideRadical = ray_dot_originMinusCenter * ray_dot_originMinusCenter - glm::dot(originMinusCenter, originMinusCenter) + sqradius;
 
@@ -72,7 +72,7 @@ namespace raycasting::shapes
       float d = outsideRadical - sqrtInsideRadical;
 
       // sphere is wholly ahead of ray origin and emits a surface intersection
-      Intersection intersection{.position = ray.origin + d * ray.unitDirection, .distance = d};
+      Intersection intersection{.position = ray.origin + d * ray.direction, .distance = d};
       intersection.normal = glm::normalize(intersection.position - center);
       intersection.diffuse = xyzToDiffuse(intersection.position);
       return intersection;

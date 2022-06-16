@@ -28,14 +28,14 @@ namespace raycasting::shapes
       //   (o - center) dot n + t * d dot n = 0
       //   t = [(center - o) dot n] / (d dot n)
 
-      const float dDotN = glm::dot(ray.unitDirection, n);
+      const float dDotN = glm::dot(ray.direction, n);
 
       if (glm::abs(dDotN) < small)
         return std::nullopt; // ray parallel or close to parallel with plane
 
       const float t = glm::dot(center - ray.origin, n) / dDotN;
 
-      const glm::vec3 isect{ray.origin + t * ray.unitDirection};
+      const glm::vec3 isect{ray.origin + t * ray.direction};
 
       if (glm::abs(glm::dot(isect - center, a)) > al2 || glm::abs(glm::dot(isect - center, b)) > bl2)
         return std::nullopt; // ray intersects plane but not within bounds of quad
@@ -63,14 +63,14 @@ namespace raycasting::shapes
       //   (o - center) dot n + t * d dot n = 0
       //   t = [(center - o) dot n] / (d dot n)
 
-      const float dDotN = glm::dot(ray.unitDirection, n);
+      const float dDotN = glm::dot(ray.direction, n);
 
       if (glm::abs(dDotN) < small)
         return std::nullopt; // ray parallel or close to parallel with plane
 
       const float t = glm::dot(center - ray.origin, n) / dDotN;
 
-      const glm::vec3 isect{ray.origin + t * ray.unitDirection};
+      const glm::vec3 isect{ray.origin + t * ray.direction};
 
       if (glm::abs(glm::dot(isect - center, a)) > al2 || glm::abs(glm::dot(isect - center, b)) > bl2)
         return std::nullopt; // ray intersects plane but not within bounds of quad
