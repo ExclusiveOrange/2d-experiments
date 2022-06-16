@@ -1,12 +1,15 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <vector>
 
-#include "raycasting.hpp"
+#include "../Intersection.hpp"
+#include "../Ray.hpp"
 
-namespace raycasting
+namespace raycasting::csg
 {
+  [[nodiscard]]
   static
   std::function<std::optional<Intersection>(Ray ray)>
   makeUnion(std::vector<std::function<std::optional<Intersection>(Ray ray)>> intersectors)

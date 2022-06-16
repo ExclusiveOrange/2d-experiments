@@ -30,15 +30,17 @@
 #include "copySubImageWithDepth.hpp"
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
+#include "directions.hpp"
 #include "drawWithDepth.hpp"
 #include "drawWithoutDepth.hpp"
-#include "gradient.hpp"
+#include "makeGradient.hpp"
 #include "measureImageBounds.hpp"
 #include "MovementVectors.hpp"
 #include "noisyDiffuse.hpp"
-#include "raycasting.hpp"
-#include "raycasting_csg.hpp"
-#include "raycasting_shapes.hpp"
+#include "raycasting/cameras/Orthogonal.hpp"
+#include "raycasting/csg/makeUnion.hpp"
+#include "raycasting/shapes/makeQuad.hpp"
+#include "raycasting/shapes/makeSphere.hpp"
 
 // utility
 #include "glmprint.hpp"
@@ -305,17 +307,19 @@ namespace testing
 
   public:
     TileRenderer(
-      const raycasting::OrthogonalCamera &camera,
+      const raycasting::cameras::Orthogonal &camera,
       glm::mat3 screenToWorld,
       glm::mat3 worldToScreen)
       : screenToWorld{screenToWorld}
       , worldToScreen{worldToScreen}
       , tileIntervalScreen{glm::mat3{(float)tileIntervalWorld} * worldToScreen}
     {
+      using namespace directions;
       using namespace gradient;
       using namespace noisyDiffuse;
-      using namespace raycasting::shapes;
       using namespace raycasting;
+      using namespace raycasting::csg;
+      using namespace raycasting::shapes;
 
       // temporary image for raycasting
       glm::ivec2 tileImageSize{calculateTileScreenSize(worldToScreen)};
@@ -332,13 +336,14 @@ namespace testing
           makeGradient(
             std::vector<std::pair<float, glm::vec3>>
               {
-                {0.4f, glm::rgbColor(glm::vec3{43.f, 0.9f, 0.4f})},
-                {0.5f, glm::rgbColor(glm::vec3{106.f, 1.f, 0.48f})}
+                {0.f, glm::rgbColor(glm::vec3{43.f, 1.f, 0.3f})},
+                {0.7f, glm::rgbColor(glm::vec3{43.f, 0.9f, 0.4f})},
+                {0.8f, glm::rgbColor(glm::vec3{106.f, 1.f, 0.48f})}
               }));
 
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.5f + tileMarginWorld;
       const auto quad = makeQuad(
-        [=](const glm::vec3 &x){ return dirtAndGrass(x * 0.05f); },
+        [=](const glm::vec3 &x) {return dirtAndGrass(x * 0.35f);},
         //glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}),
         glm::vec3{0.f},
         halfIntervalPlusMargin * forward,
@@ -468,7 +473,6 @@ namespace testing
           glm::vec3 waveOffset = glm::vec3{0.0f, 0.f, 1.f} * waveAmplitudeWorldUnits * (float)glm::sin((-phase + wavePhaseOffset) * glm::pi<double>() * 2.0);
           glm::ivec3 waveOffsetScreen{waveOffset * worldToScreen};
 
-          if (xyz.x & 1 && xyz.y & 1)
           {
             glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
             drawWithDepth(
@@ -478,7 +482,8 @@ namespace testing
               quadImage->getUnsafeView(),
               (int16_t)screenPosition.z);
           }
-          else if (xyz.x & 2)
+
+          if (xyz.x & 2)
           {
             glm::ivec3 screenPosition = thisTilePosition - sphereAnchor + waveOffsetScreen;
             drawWithDepth(
@@ -490,15 +495,6 @@ namespace testing
           }
           else
           {
-            {
-              glm::ivec3 screenPosition = thisTilePosition - quadAnchor;
-              drawWithDepth(
-                frameBuffer,
-                frameBuffer.w / 2 + screenPosition.x,
-                frameBuffer.h / 2 + screenPosition.y,
-                quadImage->getUnsafeView(),
-                (int16_t)screenPosition.z);
-            }
             {
               glm::ivec3 screenPosition = thisTilePosition - texturedSphereAnchor + waveOffsetScreen;
               drawWithDepth(
@@ -555,7 +551,7 @@ int main(int argc, char *argv[])
     //----------------------------------------------------------------------------------------------------------------------
     // TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING TESTING
 
-    raycasting::OrthogonalCamera camera{};
+    raycasting::cameras::Orthogonal camera{};
 
     // ANGLES
     // if the desired w:h ratio is 2:1 then angle above horizon should be 30 deg
@@ -591,10 +587,10 @@ int main(int argc, char *argv[])
 
     glm::mat3x3{glm::mat4x4{}};
 
-    glm::mat3 cameraRotation = glm::mat3(glm::rotate(glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), raycasting::right), glm::radians(angleAroundVertical), raycasting::up));
-    camera.normal = raycasting::forward * cameraRotation; // at angle 0 the camera forward (+z) is world forward
-    camera.xstep = raycasting::right * cameraRotation; // at angle 0 the camera +x is world right
-    camera.ystep = raycasting::up * cameraRotation; // at angle 0 the camera +y is world up
+    glm::mat3 cameraRotation = glm::mat3(glm::rotate(glm::rotate(glm::mat4(1.f), glm::radians(angleAboveHorizon), directions::right), glm::radians(angleAroundVertical), directions::up));
+    camera.normal = directions::forward * cameraRotation; // at angle 0 the camera forward (+z) is world forward
+    camera.xstep = directions::right * cameraRotation; // at angle 0 the camera +x is world right
+    camera.ystep = directions::up * cameraRotation; // at angle 0 the camera +y is world up
 
     // because of my choice for world and camera axes, it is necessary to swap y and z in the worldToScreen transform here to get the expected results elsewhere
     glm::mat3 worldToScreen = glm::inverse(cameraRotation);

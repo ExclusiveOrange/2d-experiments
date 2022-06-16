@@ -8,9 +8,12 @@
 
 #include <glm/glm.hpp>
 
+#include <function_traits.hpp>
+
 namespace gradient
 {
   template<class V>
+  [[nodiscard]]
   std::function<V(float t)>
   makeGradient(std::vector<std::pair<float, V>> points)
   {
@@ -38,7 +41,7 @@ namespace gradient
 
     {
       const std::pair<float, V> &lastPoint = points.back();
-      pointsWithDiffs[points.size() - 1] = Point{.v = lastPoint.second, .t = lastPoint.first, .recipDiffToNext = 0.f};
+      pointsWithDiffs.back() = Point{.v = lastPoint.second, .t = lastPoint.first, .recipDiffToNext = 0.f};
     }
 
     return [points = std::move(pointsWithDiffs)]

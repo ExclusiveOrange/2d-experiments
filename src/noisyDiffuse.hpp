@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/noise.hpp>
 
-#include "gradient.hpp"
+#include "makeGradient.hpp"
 
 namespace noisyDiffuse
 {
