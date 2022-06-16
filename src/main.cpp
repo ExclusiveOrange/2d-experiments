@@ -327,31 +327,24 @@ namespace testing
         glm::vec3{0.f},
         tileIntervalWorld * 0.38f);
 
+      auto dirtAndGrass =
+        makeNoisyDiffuse(
+          makeGradient(
+            std::vector<std::pair<float, glm::vec3>>
+              {
+                {0.4f, glm::rgbColor(glm::vec3{43.f, 0.9f, 0.4f})},
+                {0.5f, glm::rgbColor(glm::vec3{106.f, 1.f, 0.48f})}
+              }));
+
       const float halfIntervalPlusMargin = tileIntervalWorld * 0.5f + tileMarginWorld;
       const auto quad = makeQuad(
-        glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}),
+        [=](const glm::vec3 &x){ return dirtAndGrass(x * 0.05f); },
+        //glm::rgbColor(glm::vec3{38.f, 0.68f, 0.73f}),
         glm::vec3{0.f},
         halfIntervalPlusMargin * forward,
         halfIntervalPlusMargin * right);
 
       const auto csgUnion = makeUnion({sphere, quad});
-
-      auto gradient = makeGradient(
-        std::vector<std::pair<float, glm::vec3>>
-          {
-            {0.f, {1.f, 0.5f, 0.f}},
-            {1.f, {0.f, 0.5f, 1.f}}
-          });
-
-      auto noisyDiffuse = makeNoisyDiffuse(gradient);
-
-      const auto texturedSphere = makeSphere(
-        [=](const glm::vec3 x)
-        {
-          return noisyDiffuse(x * 0.1f);
-        },
-        glm::vec3{0.f},
-        tileIntervalWorld * 0.38f);
 
       glm::vec3 minLight{0.2f};
       std::vector<DirectionalLight> directionalLights{DirectionalLight{glm::normalize(forward + 2.f * down), glm::vec3{1.f, 1.f, 1.f}}};
@@ -385,6 +378,7 @@ namespace testing
             minLight,
             &directionalLights[0],
             (int)directionalLights.size());
+
           measureImageBounds(renderTempView, &minx, &miny, &width, &height);
           quadAnchor.x = renderTempView.w / 2 - minx;
           quadAnchor.y = renderTempView.h / 2 - miny;
@@ -409,6 +403,20 @@ namespace testing
 
         // textured sphere
         {
+          auto noisyDiffuse =
+            makeNoisyDiffuse(
+              makeGradient(
+                std::vector<std::pair<float, glm::vec3>>
+                  {
+                    {0.f, {1.f, 0.2f, 0.f}},
+                    {1.f, {0.f, 0.5f, 1.f}}
+                  }));
+
+          const auto texturedSphere = makeSphere(
+            [=](const glm::vec3 x) {return noisyDiffuse(x * 0.1f);},
+            glm::vec3{0.f},
+            tileIntervalWorld * 0.38f);
+
           camera.render(
             renderTempView,
             texturedSphere,
