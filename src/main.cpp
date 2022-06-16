@@ -446,7 +446,7 @@ int main(int argc, char *argv[])
     //simdtest1();
     //simdtest2();
     //simdtest3();
-    simdtest4(-15000);
+    simdtest4(0);
 
     return 0;
   }

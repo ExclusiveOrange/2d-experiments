@@ -33,7 +33,7 @@ print(const char *name, auto &&a)
       first = !first;
     else
       cout << ", ";
-    cout << x;
+    cout << hex <<  x;
   }
   cout << "}" << endl;
 }
@@ -210,6 +210,8 @@ void simdtest4(int16_t srcBias)
   //   int16_t d16 = d8 + bias
   //   uint32_t argb = 0xff000000 | drgb;
 
+  cout << "srcBias: " << srcBias << endl;
+
   uint32_t _src_drgb[8];
   uint32_t _dst_argb[8];
   int16_t _dst_depth[8];
@@ -222,15 +224,25 @@ void simdtest4(int16_t srcBias)
     _dst_depth[i] = (int16_t)(i - 4);
   }
 
+  cout << "initial values:" << endl;
+
+  print("_src_drgb", _src_drgb);
+  print("_dst_argb", _dst_argb);
+  print("_dst_depth", _dst_depth);
+
+  cout << "----------------------------" << endl;
+
+  //----------------------------------------------------------------------------------------------------------------------
+
   // read src_drgb
-  __m256i drgb = _mm256_loadu_si256((__m256i*)_src_drgb); // L 7 CPI 0.5
+  __m256i src_drgb = _mm256_loadu_si256((__m256i*)_src_drgb); // L 7 CPI 0.5
 
   // NOTE: can't figure out how to test src_drgb depth against 255 directly in SIMD since all the 32 bit integer instructions seem to be for signed integers,
   // so instead I'm doing a bit more work and then doing the test;
   // I don't think this is a big deal because it's only a few simple instructions that have to be done anyway in the case at least one pixel in source doesn't have depth 255
 
   // src_drgb >> 24
-  __m256i src_depth_unbiased_32 = _mm256_srli_epi32(drgb, 24); // L 1 CPI 0.5
+  __m256i src_depth_unbiased_32 = _mm256_srli_epi32(src_drgb, 24); // L 1 CPI 0.5
 
   // make mask of drgb values where d == 255
   __m256i src_depth_255_mask = _mm256_cmpeq_epi32(src_depth_unbiased_32, _mm256_set1_epi32(255)); // L 1 CPI 0.5 (depending on what compiler does with set1)
@@ -242,6 +254,8 @@ void simdtest4(int16_t srcBias)
     return;
   }
 
+  //----------------------------------------------------------------------------------------------------------------------
+
   // split _m256 depth into 2 x _m128 depth to use _mm_packs_epi32
   __m128i src_depth_unbiased_32_1 = _mm256_extracti128_si256(src_depth_unbiased_32, 1); // L 3 CPI 1
   __m128i src_depth_unbiased_32_0 = _mm256_castsi256_si128(src_depth_unbiased_32); // no-op
@@ -251,10 +265,52 @@ void simdtest4(int16_t srcBias)
 
   print_u16("src_depth_unbiased_16", src_depth_unbiased_16);
 
-  // clamp(-32768, 32767, srcBias + src_depth_unbiased_16)
+  // clamp(srcBias + src_depth_unbiased_16, -32768, 32767)
   // NOTE: can compute _mm_set1_epi16 ahead of time to avoid latency
   __m128i src_depth_biased = _mm_adds_epi16(src_depth_unbiased_16, _mm_set1_epi16(srcBias)); // L 1 CPI 0.5 + L 3 CPI 1
 
   print_i16("src_depth_biased", src_depth_biased);
 
+  //----------------------------------------------------------------------------------------------------------------------
+
+  // TODO: could do this earlier since there will be latency
+  __m128i dst_depth = _mm_loadu_si128((__m128i*)_dst_depth); // L 6 CPI 0.5
+
+  __m128i src_depth_lt_dst_depth_mask = _mm_cmpgt_epi16(dst_depth, src_depth_biased); // L 1 CPI 0.5
+
+  // if all src_depth >= dst_depth then quit because nothing to do
+  if (_mm_testz_si128(src_depth_lt_dst_depth_mask, _mm_set1_epi64x(-1))) // L 3 CPI 1
+  {
+    cout << "all src_depth + bias >= dst_depth" << endl;
+    return;
+  }
+
+  //----------------------------------------------------------------------------------------------------------------------
+
+  // choose src_depth or dst_depth conditionally
+  __m128i src_depth_or_dst_depth = _mm_blendv_epi8(dst_depth, src_depth_biased, src_depth_lt_dst_depth_mask); // L 2 CPI 0.66
+
+  // store final dst_depth values
+  _mm_storeu_si128((__m128i*)_dst_depth, src_depth_or_dst_depth);
+
+  print_i16("src_depth_or_dst_depth", src_depth_or_dst_depth);
+  print("_dst_depth (array)", _dst_depth);
+
+  // replace source depth channel with alpha 255
+  __m256i src_argb = _mm256_or_si256(src_drgb, _mm256_set1_epi32(0xff000000));
+
+  // load dst_argb
+  __m256i dst_argb = _mm256_loadu_si256((__m256i*)_dst_argb); // L 7 CPI 1
+
+  // expand 16 bit mask to 32 bit mask
+  __m256i src_depth_lt_dst_depth_mask_256 = _mm256_cvtepi16_epi32(src_depth_lt_dst_depth_mask);
+
+  // choose src_argb or dst_argb conditionally
+  __m256i src_argb_or_dst_argb = _mm256_blendv_epi8(dst_argb, src_argb, src_depth_lt_dst_depth_mask_256);
+
+  // store final dst_argb values
+  _mm256_storeu_si256((__m256i*)_dst_argb, src_argb_or_dst_argb);
+
+  print_u32("src_argb_or_dst_argb (register)", src_argb_or_dst_argb);
+  print("_dst_argb (array)", _dst_argb);
 }
