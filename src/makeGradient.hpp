@@ -25,11 +25,7 @@ namespace gradient
 
     std::sort(points.begin(), points.end(), [](const std::pair<float, V> &a, const std::pair<float, V> &b) {return a.first < b.first;});
 
-    struct Point
-    {
-      V v;
-      float t, recipDiffToNext;
-    };
+    struct Point {V v; float t, recipDiffToNext;};
 
     std::vector<Point> pointsWithDiffs{points.size()};
 
@@ -39,18 +35,11 @@ namespace gradient
       pointsWithDiffs[i] = Point{.v = points[i].second, .t = points[i].first, .recipDiffToNext = (diff != 0.f) ? 1.f / diff : 0.f};
     }
 
-    {
-      const std::pair<float, V> &lastPoint = points.back();
-      pointsWithDiffs.back() = Point{.v = lastPoint.second, .t = lastPoint.first, .recipDiffToNext = 0.f};
-    }
+    pointsWithDiffs.back() = Point{.v = points.back().second, .t = points.back().first, .recipDiffToNext = 0.f};
 
-    return [points = std::move(pointsWithDiffs)]
-      (float t) -> V
+    return [points = std::move(pointsWithDiffs)](float t) -> V
     {
-      auto nextIt = std::upper_bound(
-        points.begin(), points.end(),
-        t,
-        [](float t, const Point &point) {return t < point.t;});
+      auto nextIt = std::upper_bound( points.begin(), points.end(), t, [](float t, const Point &point) {return t < point.t;});
 
       if (nextIt == points.begin())
         return points.front().v;
@@ -59,9 +48,7 @@ namespace gradient
         return points.back().v;
 
       Point a = *(nextIt - 1);
-      V b = nextIt->v;
-
-      return glm::mix(a.v, b, (t - a.t) * a.recipDiffToNext);
+      return glm::mix(a.v, nextIt->v, (t - a.t) * a.recipDiffToNext);
     };
   }
 }

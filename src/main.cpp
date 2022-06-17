@@ -277,7 +277,7 @@ namespace testing
 {
   class TileRenderer : NoCopyNoMove
   {
-    static constexpr int tileIntervalWorld = 200;
+    static constexpr int tileIntervalWorld = 100;
     static constexpr int tileMarginWorld = 1;
 
     const glm::mat3 screenToWorld;

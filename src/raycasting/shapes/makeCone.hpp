@@ -105,16 +105,10 @@ namespace raycasting::shapes
   std::function<std::optional<Intersection>(Ray ray)>
   makeCone(glm::vec3 diffuse, float height, float radiusAtHeight) // height can be negative
   {
-    detail::Cone cone{height, radiusAtHeight};
-
-    return [=](Ray ray) -> std::optional<Intersection>
+    return [=, cone = detail::Cone{height, radiusAtHeight}](Ray ray) -> std::optional<Intersection>
     {
-      auto maybeIntersection = cone.intersect(ray);
-
-      if (maybeIntersection)
-        maybeIntersection->diffuse = diffuse;
-
-      return maybeIntersection;
+      auto i = cone.intersect(ray);
+      return i ? (i->diffuse = diffuse, i) : i;
     };
   }
 
@@ -123,16 +117,10 @@ namespace raycasting::shapes
   std::function<std::optional<Intersection>(Ray ray)>
   makeCone(const std::function<glm::vec3(glm::vec3)> &xyzToDiffuse, float height, float radiusAtHeight) // height can be negative
   {
-    detail::Cone cone{height, radiusAtHeight};
-
-    return [=](Ray ray) -> std::optional<Intersection>
+    return [=, cone = detail::Cone{height, radiusAtHeight}](Ray ray) -> std::optional<Intersection>
     {
-      auto maybeIntersection = cone.intersect(ray);
-
-      if (maybeIntersection)
-        maybeIntersection->diffuse = xyzToDiffuse(maybeIntersection->position);
-
-      return maybeIntersection;
+      auto i = cone.intersect(ray);
+      return i ? (i->diffuse = xyzToDiffuse(i->position), i) : i;
     };
   }
 }

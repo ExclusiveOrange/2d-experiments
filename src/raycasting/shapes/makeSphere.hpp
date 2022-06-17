@@ -53,37 +53,27 @@ namespace raycasting::shapes
     };
   }
 
+  [[nodiscard]]
   static
   std::function<std::optional<Intersection>(Ray ray)>
   makeSphere(glm::vec3 diffuse, glm::vec3 center, float radius)
   {
-    detail::Sphere sphere{center, radius};
-
-    return [=](Ray ray) -> std::optional<Intersection>
+    return [=, sphere = detail::Sphere{center, radius}](Ray ray) -> std::optional<Intersection>
     {
-      auto maybeIntersection = sphere.intersect(ray);
-
-      if (maybeIntersection)
-        maybeIntersection->diffuse = diffuse;
-
-      return maybeIntersection;
+      auto i = sphere.intersect(ray);
+      return i ? (i->diffuse = diffuse, i) : i;
     };
   }
 
+  [[nodiscard]]
   static
   std::function<std::optional<Intersection>(Ray ray)>
   makeSphere(const std::function<glm::vec3(glm::vec3)> &xyzToDiffuse, glm::vec3 center, float radius)
   {
-    detail::Sphere sphere{center, radius};
-
-    return [=](Ray ray) -> std::optional<Intersection>
+    return [=, sphere = detail::Sphere{center, radius}](Ray ray) -> std::optional<Intersection>
     {
-      auto maybeIntersection = sphere.intersect(ray);
-
-      if (maybeIntersection)
-        maybeIntersection->diffuse = xyzToDiffuse(maybeIntersection->position);
-
-      return maybeIntersection;
+      auto i = sphere.intersect(ray);
+      return i ? (i->diffuse = xyzToDiffuse(i->position), i) : i;
     };
   }
 }
