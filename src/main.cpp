@@ -613,7 +613,7 @@ int main(int argc, char *argv[])
     glm::mat3 screenToWorld = glm::inverse(worldToScreen);
 
     // TESTING volume rendering
-    CpuDepthVolume depthVolume{300, 300};
+    CpuDepthVolume depthVolume{260, 260};
     {
       raycasting::cameras::OrthogonalVolume volumeCamera{camera.normal, camera.xstep, camera.ystep};
 
@@ -704,8 +704,13 @@ int main(int argc, char *argv[])
       {
         union Prism {struct {uint8_t a, r, g, b;}; uint32_t argb;} p0{.argb = argb0}, p1{.argb = argb1};
 
+        // tried glm in case it would use AVX but if it did it wasn't any faster
+        //constexpr float r255 = 1.f / 255.f;
+        //glm::u8vec4 v8_r{glm::mix(glm::vec4{p0.a, p0.r, p0.g, p0.b}, glm::vec4{p1.a, p1.r, p1.g, p1.b}, (float)t * r255)};
+        //Prism r{.a = v8_r.x, .r = v8_r.y, .g = v8_r.z, .b = v8_r.w};
+
         // MSVC compiler does not optimize this at all unfortunately.
-        // Probably will have to manually use AVX2 for this, if there's a way.
+        // Probably will have to manually use SIMD intrinsics for this, if there's a way.
         Prism r{
           .a = uint8_t(((uint16_t)p0.a * (255 - t) + (uint16_t)p1.a * t) / 255),
           .r = uint8_t(((uint16_t)p0.r * (255 - t) + (uint16_t)p1.r * t) / 255),
