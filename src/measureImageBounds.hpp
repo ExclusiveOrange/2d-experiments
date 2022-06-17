@@ -14,10 +14,10 @@ measureImageBounds(
   int _maxy = 0;
 
   for (int y = 0; y < image.h; ++y)
-    for (int x = 0; x < image.w; ++x)
-    {
-      bool any = false;
+  {
+    bool any = false;
 
+    for (int x = 0; x < image.w; ++x)
       if (image.drgb[y * image.w + x] < 0xff000000)
       {
         any = true;
@@ -25,12 +25,12 @@ measureImageBounds(
         _maxx = std::max(x, _maxx);
       }
 
-      if (any)
-      {
-        _miny = std::min(y, _miny);
-        _maxy = std::max(y, _maxy);
-      }
+    if (any)
+    {
+      _miny = std::min(y, _miny);
+      _maxy = std::max(y, _maxy);
     }
+  }
 
   *minx = _minx;
   *miny = _miny;

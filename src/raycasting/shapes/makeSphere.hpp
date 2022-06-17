@@ -4,6 +4,7 @@
 #include <optional>
 
 #include <glm/geometric.hpp>
+#include <glm/vec3.hpp>
 
 #include "../Intersection.hpp"
 #include "../Ray.hpp"
@@ -45,7 +46,6 @@ namespace raycasting::shapes
         float outsideRadical = -ray_dot_originMinusCenter;
         float d = outsideRadical - sqrtInsideRadical;
 
-        // sphere is wholly ahead of ray origin and emits a surface intersection
         Intersection intersection{.position = ray.origin + d * ray.direction, .distance = d};
         intersection.normal = glm::normalize(intersection.position - center);
         return intersection;
@@ -55,7 +55,7 @@ namespace raycasting::shapes
 
   [[nodiscard]]
   static
-  std::function<std::optional<Intersection>(Ray ray)>
+  std::function<std::optional<Intersection>(Ray)>
   makeSphere(glm::vec3 diffuse, glm::vec3 center, float radius)
   {
     return [=, sphere = detail::Sphere{center, radius}](Ray ray) -> std::optional<Intersection>
@@ -67,7 +67,7 @@ namespace raycasting::shapes
 
   [[nodiscard]]
   static
-  std::function<std::optional<Intersection>(Ray ray)>
+  std::function<std::optional<Intersection>(Ray)>
   makeSphere(const std::function<glm::vec3(glm::vec3)> &xyzToDiffuse, glm::vec3 center, float radius)
   {
     return [=, sphere = detail::Sphere{center, radius}](Ray ray) -> std::optional<Intersection>

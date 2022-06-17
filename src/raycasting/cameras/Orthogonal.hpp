@@ -28,7 +28,8 @@ namespace raycasting::cameras
     // Orthogonal.render
     // Depth is centered at origin with uint8_t value 127.
     // Depth value 255 is reserved for rays which do not intersect anything or where the intersection distance is >= +128.0f.
-    void render(
+    void
+    render(
       const ViewOfCpuImageWithDepth &destImage,
       Function<std::optional<Intersection>(Ray ray)> auto &&intersect,
       const glm::vec3 minLight,
@@ -37,7 +38,7 @@ namespace raycasting::cameras
       uint32_t defaultDrgb = 0xff000000)
     const
     {
-      Ray ray{.direction = this->normal};
+      Ray ray{.direction = normal};
 
       for (int y = 0; y < destImage.h; ++y)
       {
