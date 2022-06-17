@@ -31,8 +31,8 @@
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 #include "directions.hpp"
-#include "drawWithDepth.hpp"
-#include "drawWithoutDepth.hpp"
+#include "drawing/drawWithDepth.hpp"
+#include "drawing/drawWithoutDepth.hpp"
 #include "makeGradient.hpp"
 #include "measureImageBounds.hpp"
 #include "MovementVectors.hpp"
@@ -454,6 +454,8 @@ namespace testing
       // and could use another thread to clear framebuffers so that there is always a framebuffer ready to go.
       // That would make a significant performance improvement since clearing seems to take up to half of the total time
       // even in a scene with a lot of drawing and overlap.
+
+      using namespace drawing;
 
       frameBuffer.clear(0xff000000, 0x7fff);
 
