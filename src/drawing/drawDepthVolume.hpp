@@ -12,7 +12,7 @@
 namespace drawing
 {
   static void
-  drawDepthVolumePlain(
+  drawDepthVolume(
     ViewOfCpuFrameBuffer dest, int destx, int desty,
     ViewOfCpuDepthVolume src, int16_t srcdepthbias,
     Function<uint32_t(uint32_t destArgb, uint8_t thickness)> auto &&argbFromThickness)

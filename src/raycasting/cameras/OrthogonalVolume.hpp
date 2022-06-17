@@ -12,7 +12,7 @@
 #include "../DepthIntersection.hpp"
 #include "../Ray.hpp"
 
-namespace raycasting::camera
+namespace raycasting::cameras
 {
   // For generating CpuDepthVolume images.
 

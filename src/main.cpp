@@ -31,6 +31,7 @@
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 #include "directions.hpp"
+#include "drawing/drawDepthVolume.hpp"
 #include "drawing/drawWithDepth.hpp"
 #include "drawing/drawWithoutDepth.hpp"
 #include "makeGradient.hpp"
@@ -38,11 +39,13 @@
 #include "MovementVectors.hpp"
 #include "noisyDiffuse.hpp"
 #include "raycasting/cameras/Orthogonal.hpp"
+#include "raycasting/cameras/OrthogonalVolume.hpp"
 #include "raycasting/csg/makeUnion.hpp"
 #include "raycasting/shapes/makeCone.hpp"
 #include "raycasting/shapes/makeQuad.hpp"
 #include "raycasting/shapes/makeSphere.hpp"
 #include "raycasting/transform/translate.hpp"
+#include "raycasting/volumes/makeSphere.hpp"
 
 // utility
 #include "glmprint.hpp"
@@ -592,8 +595,8 @@ int main(int argc, char *argv[])
     //}
 
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
-    constexpr float angleAboveHorizon = 25.f;
-    constexpr float angleAroundVertical = 45.f;
+    constexpr float angleAboveHorizon = 40.f;
+    constexpr float angleAroundVertical = 30.f;
 
     std::cout << "angleAboveHorizon: " << angleAboveHorizon << ", angleAroundVertical: " << angleAroundVertical << std::endl;
 
@@ -608,6 +611,18 @@ int main(int argc, char *argv[])
     glm::mat3 worldToScreen = glm::inverse(cameraRotation);
     std::swap(worldToScreen[1], worldToScreen[2]);
     glm::mat3 screenToWorld = glm::inverse(worldToScreen);
+
+    // TESTING volume rendering
+    CpuDepthVolume depthVolume{300, 300};
+    {
+      raycasting::cameras::OrthogonalVolume volumeCamera{camera.normal, camera.xstep, camera.ystep};
+
+      auto sphere = raycasting::volumes::makeSphere(glm::vec3{0.f}, 127.f);
+
+      volumeCamera.render(
+        depthVolume.getUnsafeView(),
+        sphere);
+    };
 
     testing::TileRenderer tileRenderer{camera, screenToWorld, worldToScreen};
     const MovementVectors movementVectors{screenToWorld};
@@ -685,8 +700,40 @@ int main(int argc, char *argv[])
 
       glm::vec3 screenCenterInWorld = worldPosition;
 
+      auto blendArgb = [](uint32_t argb0, uint32_t argb1, uint8_t t) -> uint32_t
+      {
+        union Prism {struct {uint8_t a, r, g, b;}; uint32_t argb;} p0{.argb = argb0}, p1{.argb = argb1};
+
+        // MSVC compiler does not optimize this at all unfortunately.
+        // Probably will have to manually use AVX2 for this, if there's a way.
+        Prism r{
+          .a = uint8_t(((uint16_t)p0.a * (255 - t) + (uint16_t)p1.a * t) / 255),
+          .r = uint8_t(((uint16_t)p0.r * (255 - t) + (uint16_t)p1.r * t) / 255),
+          .g = uint8_t(((uint16_t)p0.g * (255 - t) + (uint16_t)p1.g * t) / 255),
+          .b = uint8_t(((uint16_t)p0.b * (255 - t) + (uint16_t)p1.b * t) / 255)};
+
+        return r.argb;
+      };
+
       auto tstart = clock::now();
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
+      // VOLUME TEST
+      frameBuffers.renderWith(
+        [&, blendArgb](const ViewOfCpuFrameBuffer &frameBuffer)
+        {
+          auto volumeView = depthVolume.getUnsafeView();
+          drawing::drawDepthVolume(
+            frameBuffer,
+            frameBuffer.w / 2 - volumeView.w / 2,
+            frameBuffer.h / 2 - volumeView.h / 2,
+            volumeView,
+            0,
+            [blendArgb](uint32_t destArgb, uint8_t thickness) -> uint32_t
+            {
+              constexpr uint32_t srcArgb = 0xffff7f00;
+              return blendArgb(destArgb, srcArgb, thickness);
+            });
+        });
       auto elapsedmillis = (1.0 / 1000.0) * (double)std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
 
       // TODO: figure out how to get OBS Studio to find window when title changes continuously
