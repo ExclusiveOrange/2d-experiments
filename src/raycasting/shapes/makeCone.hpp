@@ -14,11 +14,12 @@ namespace raycasting::shapes
 {
   namespace detail
   {
-    static auto sq(auto x) {return x * x;}
 
     class Cone
     {
       float sqradius, minz, maxz, zslope;
+
+      static auto sq(auto x) {return x * x;}
 
     public:
       Cone(float height, float radiusAtHeight)
@@ -37,7 +38,7 @@ namespace raycasting::shapes
 
       [[nodiscard]]
       std::optional<Intersection>
-      intersectCone(Ray ray) const
+      intersect(Ray ray) const
       {
         // ray is o + t * d
         //   where o is the ray origin and d is the ray direction
@@ -108,7 +109,7 @@ namespace raycasting::shapes
 
     return [=](Ray ray) -> std::optional<Intersection>
     {
-      auto maybeIntersection = cone.intersectCone(ray);
+      auto maybeIntersection = cone.intersect(ray);
 
       if (maybeIntersection)
         maybeIntersection->diffuse = diffuse;
@@ -126,7 +127,7 @@ namespace raycasting::shapes
 
     return [=](Ray ray) -> std::optional<Intersection>
     {
-      auto maybeIntersection = cone.intersectCone(ray);
+      auto maybeIntersection = cone.intersect(ray);
 
       if (maybeIntersection)
         maybeIntersection->diffuse = xyzToDiffuse(maybeIntersection->position);
