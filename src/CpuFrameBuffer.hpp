@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "fillFast.hpp"
 #include "function_traits.hpp"
 
 struct ViewOfCpuFrameBuffer
@@ -14,9 +15,8 @@ struct ViewOfCpuFrameBuffer
 
   void clear(uint32_t argbClearValue = 0xff000000, int16_t depthClearValue = 0) const
   {
-    // 2022.06.15 Atlee: std::fill_n seems to be the fastest way to do this at least on MSVC, which is faster than clang-cl here.
-    std::fill_n(image, w * h, argbClearValue);
-    std::fill_n(depth, w * h, depthClearValue);
+    fillFast(image, w * h, argbClearValue);
+    fillFast(depth, w * h, depthClearValue);
   }
 };
 
