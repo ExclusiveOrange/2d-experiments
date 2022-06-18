@@ -530,6 +530,48 @@ namespace testing
         }
     }
   };
+
+  uint32_t blendArgb(uint32_t argb0, uint32_t argb1, uint8_t t)
+  {
+    //union Prism {struct {uint8_t a, r, g, b;}; uint32_t argb;} p0{.argb = argb0}, p1{.argb = argb1};
+
+
+    // GCC extension for vectors, also supported by Clang (not sure min version but clang-cl seems okay with it).
+    typedef uint8_t uint8_4 __attribute__((vector_size(4 * sizeof(uint8_t))));
+    typedef uint16_t uint16_4 __attribute__((vector_size(4 * sizeof(uint16_t))));
+
+    union Prism2 { uint32_t u32; uint8_4 u8_4; };
+    Prism2 a8{.u32 = argb0}, b8{.u32 = argb1};
+    uint16_4 a16{__builtin_convertvector(a8.u8_4, uint16_4)};
+    uint16_4 b16{__builtin_convertvector(b8.u8_4, uint16_4)};
+
+    uint16_4 c16{a16 * uint16_t(255 - t)};
+    uint16_4 d16{b16 * uint16_t(t)};
+
+    uint16_4 e16{c16 + d16};
+    uint16_4 f16{e16 / uint16_t(255)};
+
+    uint8_4 f8{__builtin_convertvector(f16, uint8_4)};
+
+    Prism2 r{.u8_4 = f8};
+
+    return r.u32;
+
+    // tried glm in case it would use AVX but if it did it wasn't any faster
+    //constexpr float r255 = 1.f / 255.f;
+    //glm::u8vec4 v8_r{glm::mix(glm::vec4{p0.a, p0.r, p0.g, p0.b}, glm::vec4{p1.a, p1.r, p1.g, p1.b}, (float)t * r255)};
+    //Prism r{.a = v8_r.x, .r = v8_r.y, .g = v8_r.z, .b = v8_r.w};
+
+    // MSVC compiler does not optimize this at all unfortunately.
+    // Probably will have to manually use SIMD intrinsics for this, if there's a way.
+    //Prism r{
+    //  .a = uint8_t(((uint16_t)p0.a * (255 - t) + (uint16_t)p1.a * t) / 255),
+    //  .r = uint8_t(((uint16_t)p0.r * (255 - t) + (uint16_t)p1.r * t) / 255),
+    //  .g = uint8_t(((uint16_t)p0.g * (255 - t) + (uint16_t)p1.g * t) / 255),
+    //  .b = uint8_t(((uint16_t)p0.b * (255 - t) + (uint16_t)p1.b * t) / 255)};
+    //
+    //return r.argb;
+  };
 }
 
 //======================================================================================================================
@@ -700,31 +742,11 @@ int main(int argc, char *argv[])
 
       glm::vec3 screenCenterInWorld = worldPosition;
 
-      auto blendArgb = [](uint32_t argb0, uint32_t argb1, uint8_t t) -> uint32_t
-      {
-        union Prism {struct {uint8_t a, r, g, b;}; uint32_t argb;} p0{.argb = argb0}, p1{.argb = argb1};
-
-        // tried glm in case it would use AVX but if it did it wasn't any faster
-        //constexpr float r255 = 1.f / 255.f;
-        //glm::u8vec4 v8_r{glm::mix(glm::vec4{p0.a, p0.r, p0.g, p0.b}, glm::vec4{p1.a, p1.r, p1.g, p1.b}, (float)t * r255)};
-        //Prism r{.a = v8_r.x, .r = v8_r.y, .g = v8_r.z, .b = v8_r.w};
-
-        // MSVC compiler does not optimize this at all unfortunately.
-        // Probably will have to manually use SIMD intrinsics for this, if there's a way.
-        Prism r{
-          .a = uint8_t(((uint16_t)p0.a * (255 - t) + (uint16_t)p1.a * t) / 255),
-          .r = uint8_t(((uint16_t)p0.r * (255 - t) + (uint16_t)p1.r * t) / 255),
-          .g = uint8_t(((uint16_t)p0.g * (255 - t) + (uint16_t)p1.g * t) / 255),
-          .b = uint8_t(((uint16_t)p0.b * (255 - t) + (uint16_t)p1.b * t) / 255)};
-
-        return r.argb;
-      };
-
       auto tstart = clock::now();
       frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
       // VOLUME TEST
       frameBuffers.renderWith(
-        [&, blendArgb](const ViewOfCpuFrameBuffer &frameBuffer)
+        [&](const ViewOfCpuFrameBuffer &frameBuffer)
         {
           auto volumeView = depthVolume.getUnsafeView();
           drawing::drawDepthVolume(
@@ -733,10 +755,10 @@ int main(int argc, char *argv[])
             frameBuffer.h / 2 - volumeView.h / 2,
             volumeView,
             0,
-            [blendArgb](uint32_t destArgb, uint8_t thickness) -> uint32_t
+            [](uint32_t destArgb, uint8_t thickness) -> uint32_t
             {
-              constexpr uint32_t srcArgb = 0xffff7f00;
-              return blendArgb(destArgb, srcArgb, thickness);
+              constexpr uint32_t srcArgb = 0xffffffff;
+              return testing::blendArgb(destArgb, srcArgb, thickness);
             });
         });
       auto elapsedmillis = (1.0 / 1000.0) * (double)std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();

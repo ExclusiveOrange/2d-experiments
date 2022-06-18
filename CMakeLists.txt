@@ -28,7 +28,7 @@ project(2d-experiments CXX)
 if (MSVC)
     # NOTE: clang-cl also detected as MSVC which is not ideal because it supports different arguments
     message("MSVC")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast /arch:AVX2")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /fp:fast /arch:AVX2 /Qvec-report:1 /GS-")
 elseif (GNU OR CLANG OR APPLE)
     # NOTE: APPLE not detected as CLANG, even though it is using clang
     message("GNU OR CLANG OR APPLE")

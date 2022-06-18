@@ -1,0 +1,19 @@
+2022.06.17 Atlee
+
+Comments about using GPU shaders instead of CPU code.
+
+Main issue is portability. I use an M1 Macbook and an Intel Windows desktop.
+Ideally I want everything to be write-once and portable.
+However to get maximum performance it seems necessary to use SIMD intrinsics, which means separate versions must be written for Intel and ARM.
+I intend to experiment with manually unrolled loops to see if the C++ compiler will generate more performance from that, which may alleviate
+having to write intrinsics which is very tedious and unportable.
+
+But using a GPU does not reduce complexity at all.
+Apple has deprecated OpenGL for Mac, and only supports Metal.
+Vulkan is partly supported through MoltenVK, but last time I tried Mac development with that I ran across several major performance bugs
+that made it unworkable. Not only that, but Vulkan requires a massive amount of boilerplate just to do the most basic things.
+Vulkan is prohibitively complex and tedious for graphics experiments.
+Even big products like Unity have ongoing major problems with Vulkan, so I doubt I can do better on a simple hobby project.
+
+Therefore at the moment I will continue experimenting with CPU-only rendering, using SDL only to blit the final image to the screen
+which it is able to do quickly on both M1 Mac and Intel Windows.
