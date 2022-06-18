@@ -226,6 +226,10 @@ namespace
     {
       allocateBuffersIfNecessary();
       cpuFrameBuffer->useWith(cpuRenderer);
+    }
+
+    void present()
+    {
       cpuFrameBuffer->useWith(
         [&](const ViewOfCpuFrameBuffer &imageWithDepth)
         {
@@ -237,9 +241,8 @@ namespace
           if (SDL_RenderCopyEx(renderer.renderer, renderBufferTexture->texture, nullptr, nullptr, 0.0, nullptr, flip))
             throw error("SDL_RenderCopyEx failed: ", SDL_GetError());
         });
+      SDL_RenderPresent(renderer.renderer);
     }
-
-    void present() const {SDL_RenderPresent(renderer.renderer);}
 
   private:
     const SdlRenderer &renderer;
