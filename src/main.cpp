@@ -452,15 +452,7 @@ namespace testing
 
     void render(const ViewOfCpuFrameBuffer &frameBuffer, glm::vec3 screenCenterInWorld)
     {
-      // TODO: could probably clear framebuffer outside of this function,
-      // and could use more than one framebuffer,
-      // and could use another thread to clear framebuffers so that there is always a framebuffer ready to go.
-      // That would make a significant performance improvement since clearing seems to take up to half of the total time
-      // even in a scene with a lot of drawing and overlap.
-
       using namespace drawing;
-
-      frameBuffer.clear(0xff000000, 0x7fff);
 
       glm::ivec3 screenCoordsOfWorldCenter{-screenCenterInWorld * worldToScreen};
 
@@ -540,7 +532,7 @@ namespace testing
     typedef uint8_t uint8_4 __attribute__((vector_size(4 * sizeof(uint8_t))));
     typedef uint16_t uint16_4 __attribute__((vector_size(4 * sizeof(uint16_t))));
 
-    union Prism2 { uint32_t u32; uint8_4 u8_4; };
+    union Prism2 {uint32_t u32; uint8_4 u8_4;};
     Prism2 a8{.u32 = argb0}, b8{.u32 = argb1};
     uint16_4 a16{__builtin_convertvector(a8.u8_4, uint16_4)};
     uint16_4 b16{__builtin_convertvector(b8.u8_4, uint16_4)};
@@ -742,29 +734,43 @@ int main(int argc, char *argv[])
 
       glm::vec3 screenCenterInWorld = worldPosition;
 
-      auto tstart = clock::now();
-      frameBuffers.renderWith([&](const ViewOfCpuFrameBuffer &frameBuffer) {tileRenderer.render(frameBuffer, screenCenterInWorld);});
-      // VOLUME TEST
+      struct Stopwatch
+      {
+        clock::time_point t;
+        clock::duration d{};
+
+        void start() {t = clock::now();}
+        void stop() {d = clock::now() - t;}
+        auto millis() const {return (1.0 / 1000.0) * (double)std::chrono::duration_cast<std::chrono::microseconds>(d).count();}
+      };
+
+      Stopwatch sw{};
+
       frameBuffers.renderWith(
         [&](const ViewOfCpuFrameBuffer &frameBuffer)
         {
-          auto volumeView = depthVolume.getUnsafeView();
-          drawing::drawDepthVolume(
-            frameBuffer,
-            frameBuffer.w / 2 - volumeView.w / 2,
-            frameBuffer.h / 2 - volumeView.h / 2,
-            volumeView,
-            0,
-            [](uint32_t destArgb, uint8_t thickness) -> uint32_t
-            {
-              constexpr uint32_t srcArgb = 0xffffffff;
-              return testing::blendArgb(destArgb, srcArgb, thickness);
-            });
+          frameBuffer.clear(0xff000000, 0x7fff);
+          tileRenderer.render(frameBuffer, screenCenterInWorld);
+          sw.start();
+          {
+            auto volumeView = depthVolume.getUnsafeView();
+            drawing::drawDepthVolume(
+              frameBuffer,
+              frameBuffer.w / 2 - volumeView.w / 2,
+              frameBuffer.h / 2 - volumeView.h / 2,
+              volumeView,
+              0,
+              [](uint32_t destArgb, uint8_t thickness) -> uint32_t
+              {
+                constexpr uint32_t srcArgb = 0xffffffff;
+                return testing::blendArgb(destArgb, srcArgb, thickness);
+              });
+          }
+          sw.stop();
         });
-      auto elapsedmillis = (1.0 / 1000.0) * (double)std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - tstart).count();
 
       // TODO: figure out how to get OBS Studio to find window when title changes continuously
-      SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", elapsedmillis).c_str());
+      SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", sw.millis()).c_str());
 
       frameBuffers.present();
     }
