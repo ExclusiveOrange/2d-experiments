@@ -37,7 +37,7 @@
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 #include "directions.hpp"
-#include "drawing/blending/MixByte.hpp"
+#include "drawing/blending/MixArgb.hpp"
 #include "drawing/drawDepthVolume.hpp"
 #include "drawing/drawWithDepth.hpp"
 #include "drawing/drawWithoutDepth.hpp"
@@ -699,8 +699,7 @@ int main(int argc, char *argv[])
               [](uint32_t destArgb, uint8_t thickness) -> uint32_t
               {
                 constexpr uint32_t srcArgb = 0xffffffff;
-                uint32_t thicknessx4 = (thickness << 24) | (thickness << 16) | (thickness << 8) | thickness;
-                return drawing::blending::MixByte::mix(destArgb, srcArgb, thicknessx4);
+                return drawing::blending::MixArgb::mix(destArgb, srcArgb, thickness);
               });
           }
           sw.stop();

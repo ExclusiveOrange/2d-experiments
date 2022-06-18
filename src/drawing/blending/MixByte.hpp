@@ -1,6 +1,5 @@
 #pragma once
 
-#include <concepts>
 #include <cstdint>
 
 #if defined(__GCC__) || defined(__clang__)
