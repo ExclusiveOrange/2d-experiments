@@ -155,6 +155,12 @@ namespace
         throw error("SDL_CreateWindow failed! SDL_Error: ", SDL_GetError());
 
       SDL_SetWindowResizable(window, SDL_TRUE);
+  
+      //#ifdef APPLE
+      // NOTE: this changes the brightness for the entire display, not only the SDL window.
+      // NOTE: this doesn't seem like a gamma correction even though the documentation says it is; it seems to be a linear multiplier.
+      //SDL_SetWindowBrightness(window, 1.2f);
+      //#endif
     }
 
     SDL_Window *const window;

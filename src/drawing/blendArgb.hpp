@@ -6,7 +6,9 @@ namespace drawing
 {
 #if defined(__GCC__) || defined(__clang__)
   
-  uint32_t blendArgb(uint32_t argb0, uint32_t argb1, uint8_t t)
+  static
+  uint32_t
+  blendArgb(uint32_t argb0, uint32_t argb1, uint8_t t)
   {
     // GCC extension for vectors, also supported by clang (not sure min version but clang-cl with VS2022 seems okay with it).
     // This version is much faster than the non-vector version below at least on compilers which support it.
@@ -27,7 +29,9 @@ namespace drawing
 
 #else // not defined(__GCC__) and not defined(__clang__)
   
-  uint32_t blendArgb(uint32_t argb0, uint32_t argb1, uint8_t t)
+  static
+  uint32_t
+  blendArgb(uint32_t argb0, uint32_t argb1, uint8_t t)
   {
     // This function is much slower with MSVC for some reason.
     // I tried several variations and they were all bad compared to clang-cl.

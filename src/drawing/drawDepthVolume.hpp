@@ -75,7 +75,8 @@ namespace drawing
   //  }
   //}
 
-  static void
+  static
+  void
   drawDepthVolume(
     ViewOfCpuFrameBuffer dest, int destx, int desty,
     ViewOfCpuDepthVolume src, int16_t srcdepthbias,
