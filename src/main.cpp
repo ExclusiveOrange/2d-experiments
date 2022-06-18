@@ -37,7 +37,7 @@
 #include "CpuFrameBuffer.hpp"
 #include "CpuImageWithDepth.hpp"
 #include "directions.hpp"
-#include "drawing/blendArgb.hpp"
+#include "drawing/blending/MixByte.hpp"
 #include "drawing/drawDepthVolume.hpp"
 #include "drawing/drawWithDepth.hpp"
 #include "drawing/drawWithoutDepth.hpp"
@@ -685,9 +685,9 @@ int main(int argc, char *argv[])
       frameBuffers.renderWith(
         [&](const ViewOfCpuFrameBuffer &frameBuffer)
         {
-          sw.start();
           frameBuffer.clear(0xff000000, 0x7fff);
           tileRenderer.render(frameBuffer, screenCenterInWorld);
+          sw.start();
           {
             auto volumeView = depthVolume.getUnsafeView();
             drawing::drawDepthVolume(
@@ -699,7 +699,8 @@ int main(int argc, char *argv[])
               [](uint32_t destArgb, uint8_t thickness) -> uint32_t
               {
                 constexpr uint32_t srcArgb = 0xffffffff;
-                return drawing::blendArgb(destArgb, srcArgb, thickness);
+                uint32_t thicknessx4 = (thickness << 24) | (thickness << 16) | (thickness << 8) | thickness;
+                return drawing::blending::MixByte::mix(destArgb, srcArgb, thicknessx4);
               });
           }
           sw.stop();
