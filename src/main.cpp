@@ -531,6 +531,15 @@ namespace testing
 
 int main(int argc, char *argv[])
 {
+  //{
+  //  __fp16 a, b;
+  //
+  //  __fp16 c = 1.23456789f;
+  //  std::cout << "c: " << c << std::endl;
+  //  return 0;
+  //}
+
+
   try
   {
     Sdl sdl;
@@ -575,8 +584,8 @@ int main(int argc, char *argv[])
     //}
 
     //const float angleAboveHorizon = angleInDegreesFromWidthToHeightRatio(defaults::window::width, defaults::window::height);
-    constexpr float angleAboveHorizon = 40.f;
-    constexpr float angleAroundVertical = 30.f;
+    constexpr float angleAboveHorizon = 60.f;
+    constexpr float angleAroundVertical = 45.f;
 
     std::cout << "angleAboveHorizon: " << angleAboveHorizon << ", angleAroundVertical: " << angleAroundVertical << std::endl;
 
@@ -705,7 +714,6 @@ int main(int argc, char *argv[])
           sw.stop();
         });
 
-      // TODO: figure out how to get OBS Studio to find window when title changes continuously
       SDL_SetWindowTitle(window.window, toString(defaults::window::title, " render millis: ", sw.millis()).c_str());
 
       frameBuffers.present();
