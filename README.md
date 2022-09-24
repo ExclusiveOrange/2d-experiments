@@ -5,5 +5,3 @@ While I was able to get a lot of performance out of custom SIMD rendering code, 
 With a busy, fully animated test scene, I was able to get just barely 60 FPS at 4k screen resolution when using one CPU core of an i7-9700k CPU.
 
 ![still screenshot](screenshots/still-01.png)
-![stationary animated](screenshots/not-moving.mp4)
-![moving animated](screenshots/moving.mp4)
